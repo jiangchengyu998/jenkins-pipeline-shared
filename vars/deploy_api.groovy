@@ -25,6 +25,7 @@ def call(Map config = [:]) {
                         def code_dir = pwd()
 
                         sh "ls -l"
+                        sh "pwd"
                         // 给部署脚本添加执行权限
 //                        sh "chmod +x deploy.sh"
 
