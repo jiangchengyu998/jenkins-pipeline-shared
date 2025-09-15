@@ -40,6 +40,7 @@ def call(Map config = [:]) {
 //                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
                         sh "ls -l"
                         sh "pwd"
+                        sh "docker ps"
                     }
                 }
             }
