@@ -20,24 +20,15 @@ def call(Map config = [:]) {
             stage('Checkout') {
                 steps {
                     script {
-//                        git branch: config.branch ?: 'main', url: "${params.GIT_URL}"
+                        // 自动提取仓库名（取 URL 最后一段去掉 .git）
+                        def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
 
-                        def branch = config.branch ?: 'main'
-                        def gitUrl = params.GIT_URL
-                        def repoName = gitUrl.tokenize('/').last().replace('.git', '')
-
-                        // 删除旧目录
-                        sh "rm -rf ${repoName} || true"
-
-                        // 克隆代码
-                        sh "git clone -b ${branch} ${gitUrl} ${repoName}"
-
-                        // 确保是最新代码
-                        dir("${repoName}") {
-                            sh "git fetch --all"
-                            sh "git reset --hard origin/${branch}"
-                            sh "git pull origin ${branch}"
+                        // 在指定目录中 checkout
+                        dir(repoName) {
+                            git branch: config.branch ?: 'main',url: "${params.GIT_URL}"
                         }
+//                        git branch: config.branch ?: 'main', url: "${params.GIT_URL}"
+//                        sh "git clone -b ${config.branch ?: 'main'} ${params.GIT_URL}"
                     }
                 }
             }
