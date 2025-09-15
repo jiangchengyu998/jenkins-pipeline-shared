@@ -35,10 +35,12 @@ def call(Map config = [:]) {
                         sh "ls -l"
                         sh "pwd"
                         // 给部署脚本添加执行权限
-//                        sh "chmod +x deploy.sh"
+                        // 从 shared library 的 resources 中加载 deploy.sh
+                        def scriptContent = libraryResource('deploy.sh')
+                        writeFile file: 'deploy.sh', text: scriptContent
+                        sh 'chmod +x deploy.sh'
 
-                        // 执行部署脚本，传入代码目录
-//                        sh "./deploy.sh ${code_dir}"
+                        sh "./deploy.sh ${pwd()}/${repoName} ${params.API_PORT}"
                     }
                 }
             }
