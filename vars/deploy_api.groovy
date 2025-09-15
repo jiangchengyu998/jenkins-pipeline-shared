@@ -37,7 +37,7 @@ def call(Map config = [:]) {
                         writeFile file: 'deploy.sh', text: scriptContent
                         sh 'chmod +x deploy.sh'
 
-//                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
+                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
                         sh "ls -l"
                         sh "pwd"
                         sh "docker ps"
