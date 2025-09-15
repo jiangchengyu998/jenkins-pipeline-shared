@@ -12,10 +12,8 @@ def call(Map config = [:]) {
             stage('Checkout') {
                 steps {
                     script {
-                        dir('.'){
-                            git branch: config.branch ?: 'main',
-                                    url: "${params.GIT_URL}"
-                        }
+//                        git branch: config.branch ?: 'main', url: "${params.GIT_URL}"
+                        sh "git clone -b ${config.branch ?: 'main'} ${params.GIT_URL}"
                     }
                 }
             }
