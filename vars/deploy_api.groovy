@@ -9,6 +9,12 @@ def call(Map config = [:]) {
         }
 
         stages {
+            // 删除目录
+            stage('Cleanup') {
+                steps {
+                    sh "rm -rf *"
+                }
+            }
             stage('Checkout') {
                 steps {
                     script {
