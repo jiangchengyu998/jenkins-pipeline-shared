@@ -12,8 +12,10 @@ def call(Map config = [:]) {
             stage('Checkout') {
                 steps {
                     script {
-                        git branch: config.branch ?: 'main',
-                                url: "${params.GIT_URL}"
+                        dir('.'){
+                            git branch: config.branch ?: 'main',
+                                    url: "${params.GIT_URL}"
+                        }
                     }
                 }
             }
