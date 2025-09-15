@@ -29,9 +29,8 @@ def call(Map config = [:]) {
             stage('Deploy') {
                 steps {
                     script {
-                        // 获取当前目录（git clone后的目录）
-                        def code_dir = pwd()
-
+                        def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
+                        def code_dir = "${pwd()}/${repoName}"
                         sh "ls -l"
                         sh "pwd"
                         // 给部署脚本添加执行权限
@@ -40,7 +39,7 @@ def call(Map config = [:]) {
                         writeFile file: 'deploy.sh', text: scriptContent
                         sh 'chmod +x deploy.sh'
 
-                        sh "./deploy.sh ${pwd()}/${repoName} ${params.API_PORT}"
+                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
                     }
                 }
             }
