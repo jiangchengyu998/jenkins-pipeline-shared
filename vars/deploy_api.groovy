@@ -9,10 +9,12 @@ def call(Map config = [:]) {
         }
 
         stages {
-            // 删除目录
-            stage('Cleanup') {
+            stage('Prepare Workspace') {
                 steps {
-                    sh "rm -rf *"
+                    script {
+                        // 清空当前 workspace（注意会删除所有文件）
+                        deleteDir()
+                    }
                 }
             }
             stage('Checkout') {
