@@ -31,15 +31,15 @@ def call(Map config = [:]) {
                     script {
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
                         def code_dir = "${pwd()}/${repoName}"
-                        sh "ls -l"
-                        sh "pwd"
                         // 给部署脚本添加执行权限
                         // 从 shared library 的 resources 中加载 deploy.sh
                         def scriptContent = libraryResource('deploy.sh')
                         writeFile file: 'deploy.sh', text: scriptContent
                         sh 'chmod +x deploy.sh'
 
-                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
+//                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
+                        sh "ls -l"
+                        sh "pwd"
                     }
                 }
             }
