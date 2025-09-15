@@ -7,7 +7,7 @@ api_port=$2
 project_name=${code_dir##*/}
 
 # 制作镜像
-docker build -t ${project_name} ${code_dir}/Dockerfile
+docker build -t ${project_name} ${code_dir}
 # 停止并删除旧的容器
 docker stop ${project_name} || true
 # 删除旧容器
