@@ -14,4 +14,10 @@ docker stop ${project_name} || true
 docker rm -f ${project_name} || true
 # 启动容器
 docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
+if [ $? -eq 0 ]; then
+  echo "部署成功:${project_name},port: ${api_port}!"
+else
+  echo "部署失败:${project_name},port: ${api_port}!"
+  exit 1
+fi
 echo "部署成功:${project_name},port: ${api_port}!"
