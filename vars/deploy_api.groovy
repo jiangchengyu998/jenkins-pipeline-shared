@@ -24,6 +24,8 @@ def call(Map config = [:]) {
             stage('Checkout') {
                 steps {
                     script {
+                        sh 'unset http_proxy'
+                        sh 'unset https_proxy'
                         // 自动提取仓库名（取 URL 最后一段去掉 .git）
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
 
