@@ -2,7 +2,12 @@
 def call(Map config = [:]) {
     pipeline {
         agent { label config.exe_node ?: 'w-ubuntu'}
-
+        environment {
+            http_proxy  = ''
+            https_proxy = ''
+            HTTP_PROXY  = ''
+            HTTPS_PROXY = ''
+        }
         parameters {
             string(name: 'GIT_URL', defaultValue: config.gitUrl ?: '', description: 'Git repository URL')
             string(name: 'API_PORT', defaultValue: config.apiPort ?: '3000', description: 'API port number')
@@ -15,17 +20,12 @@ def call(Map config = [:]) {
                     script {
                         // 清空当前 workspace（注意会删除所有文件）
                         deleteDir()
-                        // 去掉代理
-                        sh 'unset http_proxy'
-                        sh 'unset https_proxy'
                     }
                 }
             }
             stage('Checkout') {
                 steps {
                     script {
-                        sh 'unset http_proxy'
-                        sh 'unset https_proxy'
                         // 自动提取仓库名（取 URL 最后一段去掉 .git）
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
 
