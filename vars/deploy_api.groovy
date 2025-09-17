@@ -1,7 +1,7 @@
 // vars/deploy_api.groovy
 def call(Map config = [:]) {
     pipeline {
-        agent { label: 'master'}
+        agent any
 
         parameters {
             string(name: 'GIT_URL', defaultValue: config.gitUrl ?: '', description: 'Git repository URL')
