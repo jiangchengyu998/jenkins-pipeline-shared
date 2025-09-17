@@ -30,11 +30,11 @@ def call(Map config = [:]) {
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
 
                         // 在指定目录中 checkout
-                        dir(repoName) {
-                            git branch: config.branch ?: 'main',url: "${params.GIT_URL}"
-                        }
+//                        dir(repoName) {
+//                            git branch: config.branch ?: 'main',url: "${params.GIT_URL}"
+//                        }
 //                        git branch: config.branch ?: 'main', url: "${params.GIT_URL}"
-//                        sh "git clone -b ${config.branch ?: 'main'} ${params.GIT_URL}"
+                        sh "git clone -b ${config.branch ?: 'main'} ${params.GIT_URL}"
                     }
                 }
             }
