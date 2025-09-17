@@ -34,7 +34,7 @@ language=$(detect_language "$code_dir")
 echo "检测到项目类型: $language"
 
 # 制作镜像
-docker build -t ${project_name} ${code_dir}
+docker build -t ${project_name} --build-arg SERVER_PORT=${api_port} ${code_dir}
 
 # 停止并删除旧的容器
 docker stop ${project_name} || true
@@ -44,7 +44,7 @@ docker rm -f ${project_name} || true
 if [ "$language" = "java" ]; then
     # Java项目：设置SERVER_PORT环境变量，让Spring Boot使用指定端口
     echo "Java项目检测到，设置内部服务端口为: $api_port"
-    docker run -d -p ${api_port}:${api_port} -e SERVER_PORT=${api_port} --name ${project_name} ${project_name}
+    docker run -d -p ${api_port}:${api_port}  --name ${project_name} ${project_name}
 else
     # 其他语言项目：直接使用api_port作为内外端口
     docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
