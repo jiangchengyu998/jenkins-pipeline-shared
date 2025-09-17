@@ -34,7 +34,9 @@ project_name=${code_dir##*/}
 #echo "检测到项目类型: $language"
 
 # 制作镜像
-docker build -t ${project_name} --build-arg SERVER_PORT=${api_port} ${code_dir}
+docker build   --build-arg http_proxy=http://host.docker.internal:7890 \
+               --build-arg https_proxy=http://host.docker.internal:7890 \
+               -t ${project_name} --build-arg SERVER_PORT=${api_port} ${code_dir}
 
 # 停止并删除旧的容器
 docker stop ${project_name} || true
