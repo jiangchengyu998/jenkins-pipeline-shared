@@ -34,7 +34,7 @@ project_name=${code_dir##*/}
 #echo "检测到项目类型: $language"
 
 # 制作镜像
-docker build   --build-arg http_proxy=http://100.95.91.54:7890 \
+DOCKER_BUILDKIT=1 docker build   --build-arg http_proxy=http://100.95.91.54:7890 \
                --build-arg https_proxy=http://100.95.91.54:7890 \
                -t ${project_name} --build-arg SERVER_PORT=${api_port} ${code_dir}
 
