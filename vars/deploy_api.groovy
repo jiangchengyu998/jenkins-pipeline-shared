@@ -1,11 +1,12 @@
 // vars/deploy_api.groovy
 def call(Map config = [:]) {
     pipeline {
-        agent { label 'master'}
+        agent { label config.exe_node ?: 'w-ubuntu'}
 
         parameters {
             string(name: 'GIT_URL', defaultValue: config.gitUrl ?: '', description: 'Git repository URL')
             string(name: 'API_PORT', defaultValue: config.apiPort ?: '3000', description: 'API port number')
+            string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'API port number')
         }
 
         stages {
