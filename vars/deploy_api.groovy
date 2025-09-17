@@ -15,6 +15,9 @@ def call(Map config = [:]) {
                     script {
                         // 清空当前 workspace（注意会删除所有文件）
                         deleteDir()
+                        // 去掉代理
+                        sh 'unset http_proxy'
+                        sh 'unset https_proxy'
                     }
                 }
             }
