@@ -50,7 +50,7 @@ docker rm -f ${project_name} || true
 #    docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
 #fi
 
-docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
+docker run --restart=always -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
 
 if [ $? -eq 0 ]; then
   echo "部署成功:${project_name},port: ${api_port}!"
