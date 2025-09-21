@@ -8,3 +8,15 @@ add_rr([
     exe_node: ""
 ])
 ```
+```groovy
+@Library('jenkins-pipeline-shared-gitlab@master') _
+
+create_mysql_user([
+        MYSQL_USER: 'test',
+        MYSQL_PASSWORD: "test",
+        MYSQL_HOST: "ydphoto.com:3306",
+        "MYSQL_ROOT_USER": "root",
+        "MYSQL_ROOT_PASSWORD": "XXXXX",
+        "agent": "w-ubuntu"
+])
+```
