@@ -12,13 +12,15 @@ def call(Map config = [:]) {
             stage('check nginx file existence') {
                 steps {
                     script {
+                        // 获取目录内容列表
                         def checkResult = sh(
-                                script: "ls /etc/nginx/sites-enabled",
+                                script: "ls /etc/nginx/sites-enabled/",
                                 returnStdout: true,
-                                returnStatus: true
-                        )
+                                returnStatus: false
+                        ).trim()
 
-                        echo "checkResult: ${checkResult}"
+                        echo "Existing files: ${checkResult}"
+
                         if (checkResult.contains("${params.api_name}.conf")) {
                             echo "nginx file ${params.api_name}.conf already exists. Exiting..."
                             // 如果存在，则结束流程
@@ -32,22 +34,17 @@ def call(Map config = [:]) {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ${params.api_name}.ydphoto.com; 
+    server_name ${params.api_name}.ydphoto.com;
 
     ssl_certificate /etc/ssl/ydphoto.com/fullchain.pem;
     ssl_certificate_key /etc/ssl/ydphoto.com/privkey.pem;
 
     location / {
-        proxy_pass http://100.95.91.54:${params.api_port}; 
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # 这些是 WebSocket 和 HTTP2 协议支持的重要设置，DERP 需要它们
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
+        proxy_pass http://100.95.91.54:${params.api_port};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
