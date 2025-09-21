@@ -23,19 +23,22 @@ def call(Map config = [:]) {
                         echo "Existing files: ${checkResult}"
 
                         if (checkResult.contains("${params.api_name}.conf")) {
-                            echo "nginx file ${params.api_name}.conf already exists. Exiting..."
-                            // 如果存在，则结束流程
-                            currentBuild.result = 'SUCCESS'
+                            echo "nginx file ${params.api_name}.conf already exists. Skipping remaining steps..."
+                            // 如果存在，则设置标志并跳过后续步骤
+                            FILE_EXISTS = true
                             return
                         } else {
                             echo "nginx file ${params.api_name}.conf does not exist. Adding it now..."
-                            // 如果不存在，则添加nginx文件
+                            FILE_EXISTS = false
                         }
                     }
                 }
             }
 
             stage('create nginx config') {
+                when {
+                    expression { !FILE_EXISTS }
+                }
                 steps {
                     script {
                         // 创建Nginx配置文件
@@ -55,11 +58,6 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-
-        # 这些是 WebSocket 和 HTTP2 协议支持的重要设置，DERP 需要它们
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
     }
 }
 """
@@ -78,6 +76,9 @@ server {
             }
 
             stage('restart nginx') {
+                when {
+                    expression { !FILE_EXISTS }
+                }
                 steps {
                     script {
                         def testResult = sh(
@@ -97,12 +98,18 @@ server {
 
         post {
             success {
-                echo "Nginx configuration added and service restarted successfully"
+                script {
+                    if (FILE_EXISTS) {
+                        echo "Nginx configuration file ${params.api_name}.conf already exists. No changes made."
+                    } else {
+                        echo "Nginx configuration added and service restarted successfully"
+                    }
+                }
             }
             failure {
                 echo "Operation failed"
                 // 可选：清理可能创建的文件
-                sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
+                sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf || true"
             }
         }
     }
