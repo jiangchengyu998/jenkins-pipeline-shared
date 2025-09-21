@@ -23,19 +23,21 @@ def call(Map config = [:]) {
                         echo "Existing files: ${checkResult}"
 
                         if (checkResult.contains("${params.api_name}.conf")) {
-                            echo "nginx file ${params.api_name}.conf already exists. Exiting..."
-                            // 如果存在，则结束流程
-                            currentBuild.result = 'SUCCESS'
-                            return
+                            echo "nginx file ${params.api_name}.conf already exists. Skipping subsequent stages..."
+                            // 设置环境变量标记文件已存在
+                            env.FILE_EXISTS = 'true'
                         } else {
-                            echo "nginx file ${params.api_name}.conf does not exist. Adding it now..."
-                            // 如果不存在，则添加nginx文件
+                            echo "nginx file ${params.api_name}.conf does not exist. Will create it..."
+                            env.FILE_EXISTS = 'false'
                         }
                     }
                 }
             }
 
             stage('create nginx config') {
+                when {
+                    expression { return env.FILE_EXISTS == 'false' }
+                }
                 steps {
                     script {
                         // 创建Nginx配置文件
@@ -77,7 +79,10 @@ server {
                 }
             }
 
-            stage('restart nginx') {
+            stage('reload nginx') {
+                when {
+                    expression { return env.FILE_EXISTS == 'false' }
+                }
                 steps {
                     script {
                         def testResult = sh(
@@ -85,8 +90,8 @@ server {
                                 returnStatus: true
                         )
                         if (testResult == 0) {
-                            sh "sudo systemctl restart nginx"
-                            echo "Nginx restarted successfully"
+                            sh "sudo systemctl reload nginx"
+                            echo "Nginx reload successfully"
                         } else {
                             error "Nginx configuration test failed"
                         }
@@ -97,12 +102,16 @@ server {
 
         post {
             success {
-                echo "Nginx configuration added and service restarted successfully"
+                echo "Pipeline completed successfully"
             }
             failure {
                 echo "Operation failed"
-                // 可选：清理可能创建的文件
-                sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
+                // 清理可能创建的文件
+                script {
+                    if (env.FILE_EXISTS == 'false') {
+                        sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
+                    }
+                }
             }
         }
     }
