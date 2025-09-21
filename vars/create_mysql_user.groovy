@@ -59,7 +59,7 @@ def call(Map config = [:]) {
                         )
 
                         if (userExists == 0) {
-                            error "MySQL用户 ${params.MYSQL_USER} 已存在"
+                            echo "MySQL用户 ${params.MYSQL_USER} 已存在"
                             // 如果存在，则结束流程
                             currentBuild.result = 'SUCCESS'
                             return
