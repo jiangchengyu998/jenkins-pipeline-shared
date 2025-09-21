@@ -12,7 +12,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def checkResult = sh(
-                                script: "ls",
+                                script: "ls /etc/nginx/sites-enabled",
                                 returnStdout: true
                         )
 
