@@ -60,12 +60,12 @@ def call(Map config = [:]) {
 
                         if (userExists == 0) {
                             echo "MySQL用户 ${params.MYSQL_USER} 已存在"
-                            // 如果存在，则结束流程
-                            currentBuild.result = 'SUCCESS'
-                            return
+                            // 设置标志位，但继续执行后续步骤
+                            USER_ALREADY_EXISTS = true
+                        } else {
+                            echo "MySQL用户 ${params.MYSQL_USER} 不存在，将创建用户"
+                            USER_ALREADY_EXISTS = false
                         }
-
-                        echo "MySQL用户 ${params.MYSQL_USER} 不存在，可以创建"
                     }
                 }
             }
@@ -73,7 +73,9 @@ def call(Map config = [:]) {
             stage('创建用户') {
                 steps {
                     script {
-                        def sqlCommands = """
+                        // 只有当用户不存在时才执行创建操作
+                        if (!USER_ALREADY_EXISTS) {
+                            def sqlCommands = """
 -- 创建用户并设置密码
 CREATE USER '${params.MYSQL_USER}'@'%' IDENTIFIED BY '${params.MYSQL_PASSWORD}';
 
@@ -81,11 +83,14 @@ CREATE USER '${params.MYSQL_USER}'@'%' IDENTIFIED BY '${params.MYSQL_PASSWORD}';
 FLUSH PRIVILEGES;
 """
 
-                        writeFile file: 'create_user.sql', text: sqlCommands
+                            writeFile file: 'create_user.sql', text: sqlCommands
 
-                        sh "mysql -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' < create_user.sql"
+                            sh "mysql -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' < create_user.sql"
 
-                        echo "用户创建成功"
+                            echo "用户创建成功"
+                        } else {
+                            echo "用户已存在，跳过创建步骤"
+                        }
                     }
                 }
             }
@@ -93,16 +98,17 @@ FLUSH PRIVILEGES;
             stage('验证用户创建') {
                 steps {
                     script {
+                        // 无论用户是否已存在，都执行验证步骤
                         def userCheck = sh(
                                 script: "mysql -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
                                 returnStatus: true
                         )
 
                         if (userCheck != 0) {
-                            error "用户创建验证失败"
+                            error "用户验证失败"
                         }
 
-                        echo "用户创建验证成功"
+                        echo "用户验证成功"
                     }
                 }
             }
@@ -115,11 +121,11 @@ FLUSH PRIVILEGES;
 
                     echo """
 ==============================================
-MySQL 用户创建成功!
+MySQL 用户处理成功!
 ==============================================
 用户名: ${params.MYSQL_USER}
-密码: ${params.MYSQL_PASSWORD}
 主机: ${params.MYSQL_HOST}
+状态: ${USER_ALREADY_EXISTS ? '已存在' : '已创建'}
 ==============================================
 """
                 }
@@ -127,11 +133,11 @@ MySQL 用户创建成功!
             failure {
                 script {
                     sh 'rm -f create_user.sql'
-                    echo "用户创建失败，已清理临时文件"
+                    echo "用户处理失败，已清理临时文件"
                 }
             }
             always {
-                echo "MySQL用户创建流程结束"
+                echo "MySQL用户处理流程结束"
             }
         }
     }
