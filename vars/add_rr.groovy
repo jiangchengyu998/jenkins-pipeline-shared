@@ -16,8 +16,6 @@ def call(Map config = [:]) {
                     }
                 }
             }
-        }
-        stages {
             stage('add RR') {
                 steps {
                     script {
