@@ -23,31 +23,19 @@ def call(Map config = [:]) {
                         echo "Existing files: ${checkResult}"
 
                         if (checkResult.contains("${params.api_name}.conf")) {
-                            echo "nginx file ${params.api_name}.conf already exists. Skipping remaining steps..."
-                            // 如果存在，则设置标志并跳过后续步骤
-                            def FILE_EXISTS = true
+                            echo "nginx file ${params.api_name}.conf already exists. Exiting..."
+                            // 如果存在，则结束流程
                             currentBuild.result = 'SUCCESS'
                             return
                         } else {
                             echo "nginx file ${params.api_name}.conf does not exist. Adding it now..."
-                            def FILE_EXISTS = false
+                            // 如果不存在，则添加nginx文件
                         }
                     }
                 }
             }
 
             stage('create nginx config') {
-                when {
-                    expression {
-                        // 重新检查文件是否存在（因为变量作用域问题）
-                        def checkResult = sh(
-                                script: "ls /etc/nginx/sites-enabled/",
-                                returnStdout: true,
-                                returnStatus: false
-                        ).trim()
-                        return !checkResult.contains("${params.api_name}.conf")
-                    }
-                }
                 steps {
                     script {
                         // 创建Nginx配置文件
@@ -67,6 +55,11 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # 这些是 WebSocket 和 HTTP2 协议支持的重要设置，DERP 需要它们
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "Upgrade";
     }
 }
 """
@@ -85,17 +78,6 @@ server {
             }
 
             stage('restart nginx') {
-                when {
-                    expression {
-                        // 重新检查文件是否存在（因为变量作用域问题）
-                        def checkResult = sh(
-                                script: "ls /etc/nginx/sites-enabled/",
-                                returnStdout: true,
-                                returnStatus: false
-                        ).trim()
-                        return !checkResult.contains("${params.api_name}.conf")
-                    }
-                }
                 steps {
                     script {
                         def testResult = sh(
@@ -115,43 +97,12 @@ server {
 
         post {
             success {
-                script {
-                    // 检查文件是否存在
-                    def checkResult = sh(
-                            script: "ls /etc/nginx/sites-enabled/",
-                            returnStdout: true,
-                            returnStatus: false
-                    ).trim()
-
-                    if (checkResult.contains("${params.api_name}.conf")) {
-                        // 检查是否是刚刚创建的
-                        def fileCreateTime = sh(
-                                script: "stat -c %Y /etc/nginx/sites-enabled/${params.api_name}.conf || echo '0'",
-                                returnStdout: true,
-                                returnStatus: false
-                        ).trim()
-
-                        def currentTime = sh(
-                                script: "date +%s",
-                                returnStdout: true,
-                                returnStatus: false
-                        ).trim()
-
-                        // 如果文件创建时间在1分钟内，说明是刚刚创建的
-                        if ((currentTime.toLong() - fileCreateTime.toLong()) < 60) {
-                            echo "Nginx configuration added and service restarted successfully"
-                        } else {
-                            echo "Nginx configuration file ${params.api_name}.conf already exists. No changes made."
-                        }
-                    } else {
-                        echo "Nginx configuration added and service restarted successfully"
-                    }
-                }
+                echo "Nginx configuration added and service restarted successfully"
             }
             failure {
                 echo "Operation failed"
                 // 可选：清理可能创建的文件
-                sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf || true"
+                sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
             }
         }
     }
