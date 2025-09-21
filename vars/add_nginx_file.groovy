@@ -32,22 +32,9 @@ def call(Map config = [:]) {
                             sh '''
                                 sudo tee /etc/nginx/sites-enabled/${params.api_name}.conf > /dev/null <<EOF
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${params.api_name}.ydphoto.com;
 
-    ssl_certificate /etc/ssl/ydphoto.com/fullchain.pem;
-    ssl_certificate_key /etc/ssl/ydphoto.com/privkey.pem;
-
-    location / {
-        proxy_pass http://100.95.91.54:${params.api_port};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
 }
-EOF
+                                EOF
                             '''
                         }
                     }
