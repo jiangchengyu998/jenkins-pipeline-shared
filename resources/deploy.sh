@@ -37,6 +37,12 @@ project_name=${code_dir##*/}
 # 制作镜像
 docker build -t ${project_name} --build-arg SERVER_PORT=${api_port} ${code_dir}
 
+if [ $? -ne 0 ]; then
+  echo "镜像制作失败:${project_name}"
+  exit 1
+fi
+echo "镜像制作完成:${project_name}"
+
 # 停止并删除旧的容器
 docker stop ${project_name} || true
 docker rm -f ${project_name} || true
