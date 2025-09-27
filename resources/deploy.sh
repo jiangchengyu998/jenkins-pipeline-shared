@@ -2,6 +2,7 @@
 
 code_dir=$1
 api_port=$2
+envs=$3
 
 # 获取code_dir 最后一个/后面的字符串作为项目名
 project_name=${code_dir##*/}
@@ -49,6 +50,15 @@ docker rm -f ${project_name} || true
 #    # 其他语言项目：直接使用api_port作为内外端口
 #    docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
 #fi
+
+#这里的envs是一个json类型的，需要转换成环境变量
+envs=$(echo $envs | jq -r 'to_entries | map("\(.key)=\(.value)") | join(" ")')
+echo "环境变量: $envs"
+if [ -n "$envs" ]; then
+  docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name} -e $envs
+  echo "部署成功:${project_name},port: ${api_port}!"
+  exit 0
+fi
 
 docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
 

@@ -12,6 +12,8 @@ def call(Map config = [:]) {
             string(name: 'GIT_URL', defaultValue: config.gitUrl ?: '', description: 'Git repository URL')
             string(name: 'API_PORT', defaultValue: config.apiPort ?: '3000', description: 'API port number')
             string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'API port number')
+            string(name: 'branch', defaultValue: config.branch ?: 'main', description: 'Git branch')
+            string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables')
         }
 
         stages {
@@ -50,7 +52,7 @@ def call(Map config = [:]) {
                         writeFile file: 'deploy.sh', text: scriptContent
                         sh 'chmod +x deploy.sh'
 
-                        sh "./deploy.sh ${code_dir} ${params.API_PORT}"
+                        sh "./deploy.sh ${code_dir} ${params.API_PORT} '${params.envs}'"
                         sh "ls -l"
                         sh "pwd"
                         sh "docker ps"
