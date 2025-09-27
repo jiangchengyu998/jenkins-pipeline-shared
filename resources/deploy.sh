@@ -61,7 +61,7 @@ docker rm -f ${project_name} || true
 envs=$(echo $envs | jq -r 'to_entries | map("\(.key)=\(.value)") | join(" ")')
 echo "环境变量: $envs"
 if [ -n "$envs" ]; then
-  docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name} -e $envs
+  docker run -d -p ${api_port}:${api_port} --name ${project_name} $(echo $envs | xargs -n1 echo -e | sed 's/^/-e /') ${project_name}
   echo "部署成功:${project_name},port: ${api_port}!"
   exit 0
 fi
