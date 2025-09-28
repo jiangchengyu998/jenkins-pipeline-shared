@@ -11,9 +11,11 @@ def call(Map config = [:]) {
                 agent { label 'aliyun' }
                 steps {
                     script {
-                        // 先查询有没有这个文件，没有就不用删除
-                        sh "sudo test -f /etc/nginx/sites-enabled/${params.api_name}.conf"
-                        if ($?.exitValue() != 0) {
+                        def confExists = sh(
+                                script: "sudo test -f /etc/nginx/sites-enabled/${params.api_name}.conf",
+                                returnStatus: true
+                        )
+                        if (confExists != 0) {
                             echo "未找到 nginx 配置文件，无需删除"
                         } else {
                             sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
@@ -32,9 +34,9 @@ def call(Map config = [:]) {
                                 returnStdout: true
                         )
                         echo "DescribeDomainRecords 输出: ${query}"
-                        def recordId = query =~ /"RecordId":"(\d+)"/
-                        if (recordId) {
-                            def id = recordId[0][1]
+                        def matcher = query =~ /"RecordId":"(\d+)"/
+                        if (matcher.find()) {
+                            def id = matcher[0][1]
                             sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
                             echo "RR 记录已删除"
                         } else {
