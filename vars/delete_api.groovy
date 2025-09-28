@@ -10,24 +10,6 @@ def call(Map config = [:]) {
             string(name: 'RR', defaultValue: config.rr ?: 'demo', description: 'RR 记录')
         }
         stages {
-            stage('删除 nginx 配置') {
-                agent { label 'aliyun' }
-                steps {
-                    script {
-                        def confExists = sh(
-                                script: "sudo test -f /etc/nginx/sites-enabled/${params.api_name}.conf",
-                                returnStatus: true
-                        )
-                        if (confExists != 0) {
-                            echo "未找到 nginx 配置文件，无需删除"
-                        } else {
-                            sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
-                            sh "sudo nginx -t && sudo systemctl reload nginx"
-                            echo "nginx 配置已删除并重载"
-                        }
-                    }
-                }
-            }
             stage('删除 RR 记录') {
                 agent { label 'w-ubuntu' }
                 steps {
@@ -52,6 +34,26 @@ def call(Map config = [:]) {
                     }
                 }
             }
+
+            stage('删除 nginx 配置') {
+                agent { label 'aliyun' }
+                steps {
+                    script {
+                        def confExists = sh(
+                                script: "sudo test -f /etc/nginx/sites-enabled/${params.api_name}.conf",
+                                returnStatus: true
+                        )
+                        if (confExists != 0) {
+                            echo "未找到 nginx 配置文件，无需删除"
+                        } else {
+                            sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
+                            sh "sudo nginx -t && sudo systemctl reload nginx"
+                            echo "nginx 配置已删除并重载"
+                        }
+                    }
+                }
+            }
+
             stage('停止并删除 API 服务') {
                 agent { label 'w-ubuntu' }
                 steps {
