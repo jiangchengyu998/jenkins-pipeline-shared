@@ -1,6 +1,3 @@
-import groovy.json.JsonSlurper
-
-
 // vars/delete_api.groovy
 def call(Map config = [:]) {
     pipeline {
