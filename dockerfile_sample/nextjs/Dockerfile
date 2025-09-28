@@ -24,8 +24,11 @@ COPY package.json pnpm-lock.yaml ./
 COPY --from=deps /app/node_modules ./node_modules
 # 然后复制源代码并构建
 COPY . .
+# 构建应用前生成 Prisma 客户端
 RUN pnpm install --frozen-lockfile
+RUN pnpx prisma generate
 RUN pnpm run build
+
 
 # 阶段 3: 准备运行环境
 FROM base AS runner

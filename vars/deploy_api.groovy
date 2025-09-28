@@ -14,6 +14,7 @@ def call(Map config = [:]) {
             string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'API port number')
             string(name: 'branch', defaultValue: config.branch ?: 'main', description: 'Git branch')
             string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables')
+            string(name: 'api_id', defaultValue: config.api_id ?: '', description: 'api_id')
         }
 
         stages {
@@ -63,7 +64,24 @@ def call(Map config = [:]) {
 
         post {
             success {
-                echo "Deployment completed successfully on port ${params.API_PORT}"
+                echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
+                // 调用接口更新api的状态
+                //curl --location 'http://192.168.101.60:3000/api/apis/cmg3myjoa000aqj012vnvf3ae/webhook' \
+                //--header 'Content-Type: application/json' \
+                //--data '{
+                //    "apiStatus":"RUNNING",
+                //    "jobId": "35"
+                //}'
+                def jobId = env.BUILD_ID
+                echo "Job ID: ${jobId}"
+//                sh """curl --location 'https://www.ydphoto.com/api/apis/${params.api_id}/webhook' \
+                sh """curl --location 'http://192.168.101.60:3000/api/apis/${params.api_id}/webhook' \
+                    --header 'Content-Type: application/json' \
+                    --data '{
+                        \"apiStatus\":\"RUNNING\",
+                        \"jobId\": \"${jobId}\"
+                    }'"""
+
             }
             failure {
                 echo "Deployment failed"
