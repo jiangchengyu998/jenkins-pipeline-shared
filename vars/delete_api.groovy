@@ -4,14 +4,13 @@ import groovy.json.JsonSlurper
 // vars/delete_api.groovy
 def call(Map config = [:]) {
     pipeline {
-        agent none
+        agent { label 'w-ubuntu' }
         parameters {
             string(name: 'api_name', defaultValue: config.api_name ?: 'demo', description: 'API 名称')
             string(name: 'RR', defaultValue: config.rr ?: 'demo', description: 'RR 记录')
         }
         stages {
             stage('删除 RR 记录') {
-                agent { label 'w-ubuntu' }
                 steps {
                     script {
                         def query = sh(
@@ -23,10 +22,7 @@ def call(Map config = [:]) {
                         def records = json.DomainRecords?.Record
                         if (records && records.size() > 0) {
                             def id = records[0].RecordId
-                            timeout(time: 2, unit: 'MINUTES') {
-                                sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
-
-                            }
+                            sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
                             echo "RR 记录已删除"
                         } else {
                             echo "未找到 RR 记录，无需删除"
