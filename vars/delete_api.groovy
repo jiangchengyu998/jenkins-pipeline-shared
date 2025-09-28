@@ -11,9 +11,15 @@ def call(Map config = [:]) {
                 agent { label 'aliyun' }
                 steps {
                     script {
-                        sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
-                        sh "sudo nginx -t && sudo systemctl reload nginx"
-                        echo "nginx 配置已删除并重载"
+                        // 先查询有没有这个文件，没有就不用删除
+                        sh "sudo test -f /etc/nginx/sites-enabled/${params.api_name}.conf"
+                        if ($?.exitValue() != 0) {
+                            echo "未找到 nginx 配置文件，无需删除"
+                        } else {
+                            sh "sudo rm -f /etc/nginx/sites-enabled/${params.api_name}.conf"
+                            sh "sudo nginx -t && sudo systemctl reload nginx"
+                            echo "nginx 配置已删除并重载"
+                        }
                     }
                 }
             }
@@ -25,6 +31,7 @@ def call(Map config = [:]) {
                                 script: "aliyun alidns DescribeDomainRecords --region public --DomainName 'ydphoto.com' --RRKeyWord ${params.RR}",
                                 returnStdout: true
                         )
+                        echo "DescribeDomainRecords 输出: ${query}"
                         def recordId = query =~ /"RecordId":"(\d+)"/
                         if (recordId) {
                             def id = recordId[0][1]
