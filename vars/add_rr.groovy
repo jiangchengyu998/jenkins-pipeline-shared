@@ -3,7 +3,7 @@ def call(Map config = [:]) {
     pipeline {
         agent { label config.exe_node ?: 'w-ubuntu'}
         parameters {
-            string(name: 'RR', defaultValue: config.rr ?: 'yy', description: 'rr')
+            string(name: 'RR', defaultValue: config.rr ?: 'demo', description: 'rr')
             string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'node')
         }
 
