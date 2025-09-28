@@ -35,6 +35,8 @@ def call(Map config = [:]) {
                         )
                         echo "DescribeDomainRecords 输出: ${query}"
                         def matcher = query =~ /"RecordId":"(\d+)"/
+                        echo "matcher: ${matcher}"
+
                         if (matcher.find()) {
                             def id = matcher[0][1]
                             sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
