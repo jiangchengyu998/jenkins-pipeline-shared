@@ -22,8 +22,15 @@ def call(Map config = [:]) {
                         def records = json.DomainRecords?.Record
                         if (records && records.size() > 0) {
                             def id = records[0].RecordId
-                            sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
-                            echo "RR 记录已删除"
+                            def status = sh(
+                                    script: "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}",
+                                    returnStatus: true
+                            )
+                            if (status == 0) {
+                                echo "RR 记录已删除"
+                            } else {
+                                echo "删除 RR 记录失败，状态码: ${status}"
+                            }
                         } else {
                             echo "未找到 RR 记录，无需删除"
                         }
