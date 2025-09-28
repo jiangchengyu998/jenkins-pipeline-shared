@@ -93,7 +93,8 @@ def call(Map config = [:]) {
             }
             failure {
                 echo "Deployment failed"
-                sh """curl --location 'http://192.168.101.60:3000/api/apis/${params.api_id}/webhook' \
+//                sh """curl --location 'http://192.168.101.60:3000/api/apis/${params.api_id}/webhook' \
+                sh """curl --location 'https://www.ydphoto.com/api/apis/${params.api_id}/webhook' \
                     --header 'Content-Type: application/json' \
                     --data '{
                         \"apiStatus\":\"ERROR\",
