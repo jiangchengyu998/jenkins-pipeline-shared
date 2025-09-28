@@ -72,14 +72,12 @@ def call(Map config = [:]) {
                 //    "apiStatus":"RUNNING",
                 //    "jobId": "35"
                 //}'
-                def jobId = env.BUILD_ID
-                echo "Job ID: ${jobId}"
 //                sh """curl --location 'https://www.ydphoto.com/api/apis/${params.api_id}/webhook' \
                 sh """curl --location 'http://192.168.101.60:3000/api/apis/${params.api_id}/webhook' \
                     --header 'Content-Type: application/json' \
                     --data '{
                         \"apiStatus\":\"RUNNING\",
-                        \"jobId\": \"${jobId}\"
+                        \"jobId\": \"${env.BUILD_ID}\"
                     }'"""
 
             }
