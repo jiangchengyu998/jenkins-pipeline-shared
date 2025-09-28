@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 // vars/delete_api.groovy
 def call(Map config = [:]) {
     pipeline {
@@ -34,11 +36,10 @@ def call(Map config = [:]) {
                                 returnStdout: true
                         )
                         echo "DescribeDomainRecords 输出: ${query}"
-                        def matcher = query =~ /"RecordId":"(\d+)"/
-                        echo "matcher: ${matcher}"
-
-                        if (matcher.find()) {
-                            def id = matcher[0][1]
+                        def json = new JsonSlurper().parseText("${query}")
+                        def records = json.DomainRecords?.Record
+                        if (records && records.size() > 0) {
+                            def id = records[0].RecordId
                             sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
                             echo "RR 记录已删除"
                         } else {
