@@ -80,6 +80,16 @@ def call(Map config = [:]) {
                         \"jobId\": \"${env.BUILD_ID}\"
                     }'"""
 
+                // 发送邮件给jchengyu0829@163.com
+
+                mail to: 'jchengyu0829@163.com',
+                     subject: "API ${params.api_id} Deployed Successfully",
+                     body: """<p>API with ID: ${params.api_id} has been successfully deployed.</p>
+                             <p>Access it at: <a href="https://${params.api_id}.ydphoto.com">https://${params.api_id}.ydphoto.com</a></p>
+                             <p>Deployed by Jenkins Job: ${env.BUILD_URL}</p>""",
+//                             <p>Deployed by Jenkins Job: ${env.BUILD_URL}</p>""",
+                     mimeType: 'text/html'
+
             }
             failure {
                 echo "Deployment failed"
