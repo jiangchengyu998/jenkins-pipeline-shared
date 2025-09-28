@@ -1,11 +1,14 @@
 // vars/delete_api.groovy
+
 def call(Map config = [:]) {
     pipeline {
         agent { label 'w-ubuntu' }
+
         parameters {
             string(name: 'api_name', defaultValue: config.api_name ?: 'demo', description: 'API 名称')
             string(name: 'RR', defaultValue: config.rr ?: 'demo', description: 'RR 记录')
         }
+
         stages {
             stage('删除 RR 记录') {
                 steps {
@@ -17,18 +20,25 @@ def call(Map config = [:]) {
 
                         echo "DescribeDomainRecords 输出: ${query}"
 
-                        def json = new groovy.json.JsonSlurper().parseText(query) as Map  // 强转成普通 Map
+                        // ✅ 用 readJSON 替代 JsonSlurper，返回的是可序列化的 Map
+                        def json = readJSON text: query
                         def records = json.DomainRecords?.Record
 
                         if (records && records.size() > 0) {
                             def id = records[0].RecordId
-                            sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
-                            echo "RR 记录已删除"
+                            def status = sh(
+                                    script: "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}",
+                                    returnStatus: true
+                            )
+                            if (status == 0) {
+                                echo "RR 记录已删除"
+                            } else {
+                                echo "删除 RR 记录失败，状态码: ${status}"
+                            }
                         } else {
                             echo "未找到 RR 记录，无需删除"
                         }
                     }
-
                 }
             }
 
@@ -52,7 +62,6 @@ def call(Map config = [:]) {
             }
 
             stage('停止并删除 API 服务') {
-                agent { label 'w-ubuntu' }
                 steps {
                     script {
                         sh "docker stop ${params.api_name} || true"
@@ -61,7 +70,9 @@ def call(Map config = [:]) {
                     }
                 }
             }
+
         }
+
         post {
             success {
                 echo "API 删除流程完成"
