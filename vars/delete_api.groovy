@@ -10,27 +10,25 @@ def call(Map config = [:]) {
             stage('删除 RR 记录') {
                 steps {
                     script {
-                        script {
-                            def query = sh(
-                                    script: "aliyun alidns DescribeDomainRecords --region public --DomainName 'ydphoto.com' --RRKeyWord ${params.RR}",
-                                    returnStdout: true
-                            ).trim()
+                        def query = sh(
+                                script: "aliyun alidns DescribeDomainRecords --region public --DomainName 'ydphoto.com' --RRKeyWord ${params.RR}",
+                                returnStdout: true
+                        ).trim()
 
-                            echo "DescribeDomainRecords 输出: ${query}"
+                        echo "DescribeDomainRecords 输出: ${query}"
 
-                            def json = new groovy.json.JsonSlurper().parseText(query) as Map  // 强转成普通 Map
-                            def records = json.DomainRecords?.Record
+                        def json = new groovy.json.JsonSlurper().parseText(query) as Map  // 强转成普通 Map
+                        def records = json.DomainRecords?.Record
 
-                            if (records && records.size() > 0) {
-                                def id = records[0].RecordId
-                                sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
-                                echo "RR 记录已删除"
-                            } else {
-                                echo "未找到 RR 记录，无需删除"
-                            }
+                        if (records && records.size() > 0) {
+                            def id = records[0].RecordId
+                            sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
+                            echo "RR 记录已删除"
+                        } else {
+                            echo "未找到 RR 记录，无需删除"
                         }
-
                     }
+
                 }
             }
 
