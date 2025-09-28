@@ -1,11 +1,5 @@
 import groovy.json.JsonSlurper
 
-@NonCPS
-def deleteDomainRecord(recordId) {
-    // 在这个方法内，可以安全地执行可能引起线程问题的操作
-    sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${recordId}"
-}
-
 
 // vars/delete_api.groovy
 def call(Map config = [:]) {
@@ -48,7 +42,8 @@ def call(Map config = [:]) {
                         if (records && records.size() > 0) {
                             def id = records[0].RecordId
                             timeout(time: 2, unit: 'MINUTES') {
-                                deleteDomainRecord("${id}")
+                                sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
+
                             }
                             echo "RR 记录已删除"
                         } else {
