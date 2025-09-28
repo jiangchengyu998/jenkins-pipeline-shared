@@ -13,27 +13,26 @@ def call(Map config = [:]) {
             stage('删除 RR 记录') {
                 steps {
                     script {
-                        def query = sh(
-                                script: "aliyun alidns DescribeDomainRecords --region public --DomainName 'ydphoto.com' --RRKeyWord ${params.RR}",
-                                returnStdout: true
-                        )
-                        echo "DescribeDomainRecords 输出: ${query}"
-                        def json = new JsonSlurper().parseText("${query}")
-                        def records = json.DomainRecords?.Record
-                        if (records && records.size() > 0) {
-                            def id = records[0].RecordId
-                            def status = sh(
-                                    script: "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}",
-                                    returnStatus: true
-                            )
-                            if (status == 0) {
+                        script {
+                            def query = sh(
+                                    script: "aliyun alidns DescribeDomainRecords --region public --DomainName 'ydphoto.com' --RRKeyWord ${params.RR}",
+                                    returnStdout: true
+                            ).trim()
+
+                            echo "DescribeDomainRecords 输出: ${query}"
+
+                            def json = new groovy.json.JsonSlurper().parseText(query) as Map  // 强转成普通 Map
+                            def records = json.DomainRecords?.Record
+
+                            if (records && records.size() > 0) {
+                                def id = records[0].RecordId
+                                sh "aliyun alidns DeleteDomainRecord --region public --RecordId ${id}"
                                 echo "RR 记录已删除"
                             } else {
-                                echo "删除 RR 记录失败，状态码: ${status}"
+                                echo "未找到 RR 记录，无需删除"
                             }
-                        } else {
-                            echo "未找到 RR 记录，无需删除"
                         }
+
                     }
                 }
             }
