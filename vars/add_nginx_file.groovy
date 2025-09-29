@@ -59,9 +59,9 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
 
         # 这些是 WebSocket 和 HTTP2 协议支持的重要设置，DERP 需要它们
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
+        # proxy_http_version 1.1;
+        # proxy_set_header Upgrade \$http_upgrade;
+        # proxy_set_header Connection "Upgrade";
     }
 }
 """
