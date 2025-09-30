@@ -19,7 +19,7 @@ def call(Map config = [:]) {
             string(name: 'branch', defaultValue: config.branch ?: 'main', description: 'Git branch')
             string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables')
             string(name: 'api_id', defaultValue: config.api_id ?: '', description: 'API ID')
-            string(name: 'token', defaultValue: config.token ?: '', description: 'Git token for authentication')
+            string(name: 'gitToken', defaultValue: config.gitToken ?: '', description: 'Git gitToken for authentication')
         }
 
         stages {
@@ -40,33 +40,33 @@ def call(Map config = [:]) {
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
                         echo "Repository name: ${repoName}"
 
-                        // 如果有 token，构造带认证的 URL
+                        // 如果有 gitToken，构造带认证的 URL
                         def gitUrlWithAuth = params.GIT_URL
-                        if (params.token) {
-                            echo "Using token authentication for Git clone"
+                        if (params.gitToken) {
+                            echo "Using gitToken authentication for Git clone"
                             // 处理不同的 Git 平台 URL 格式
                             if (params.GIT_URL.contains('github.com')) {
-                                gitUrlWithAuth = params.GIT_URL.replace('https://', "https://oauth2:${params.token}@")
+                                gitUrlWithAuth = params.GIT_URL.replace('https://', "https://oauth2:${params.gitToken}@")
                             } else if (params.GIT_URL.contains('gitlab.com')) {
-                                gitUrlWithAuth = params.GIT_URL.replace('https://', "https://oauth2:${params.token}@")
+                                gitUrlWithAuth = params.GIT_URL.replace('https://', "https://oauth2:${params.gitToken}@")
                             } else if (params.GIT_URL.contains('gitee.com')) {
-                                gitUrlWithAuth = params.GIT_URL.replace('https://', "https://oauth2:${params.token}@")
+                                gitUrlWithAuth = params.GIT_URL.replace('https://', "https://oauth2:${params.gitToken}@")
                             } else {
-                                // 通用处理：在域名前插入 token
+                                // 通用处理：在域名前插入 gitToken
                                 def urlParts = params.GIT_URL.split('://')
                                 if (urlParts.length == 2) {
-                                    gitUrlWithAuth = "${urlParts[0]}://oauth2:${params.token}@${urlParts[1]}"
+                                    gitUrlWithAuth = "${urlParts[0]}://oauth2:${params.gitToken}@${urlParts[1]}"
                                 }
                             }
-                            echo "Using authenticated Git URL (token hidden in logs)"
+                            echo "Using authenticated Git URL (gitToken hidden in logs)"
                         } else {
-                            echo "No token provided, using original Git URL"
+                            echo "No gitToken provided, using original Git URL"
                         }
 
                         // 在指定目录中 checkout
                         dir(repoName) {
                             try {
-                                if (params.token) {
+                                if (params.gitToken) {
                                     // 使用带认证的 URL 进行 clone
                                     sh "git clone -b ${params.branch} '${gitUrlWithAuth}' ."
                                 } else {
