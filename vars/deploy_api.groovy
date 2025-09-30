@@ -2,6 +2,10 @@
 def call(Map config = [:]) {
     pipeline {
         agent { label config.exe_node ?: 'w-ubuntu'}
+        options {
+            // 每一行日志前加上时间戳
+            timestamps()
+        }
         environment {
             http_proxy  = ''
             https_proxy = ''
@@ -33,11 +37,11 @@ def call(Map config = [:]) {
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
 
                         // 在指定目录中 checkout
-//                        dir(repoName) {
-//                            git branch: config.branch ?: 'main',url: "${params.GIT_URL}"
-//                        }
+                        dir(repoName) {
+                            git branch: config.branch ?: 'main',url: "${params.GIT_URL}"
+                        }
 //                        git branch: config.branch ?: 'main', url: "${params.GIT_URL}"
-                        sh "git clone -b ${config.branch ?: 'main'} ${params.GIT_URL}"
+//                        sh "git clone -b ${config.branch ?: 'main'} ${params.GIT_URL}"
                     }
                 }
             }
@@ -51,11 +55,11 @@ def call(Map config = [:]) {
                         // 从 shared library 的 resources 中加载 deploy.sh
                         def scriptContent = libraryResource('deploy.sh')
                         writeFile file: 'deploy.sh', text: scriptContent
+                        sh "pwd"
                         sh 'chmod +x deploy.sh'
 
                         sh "./deploy.sh ${code_dir} ${params.API_PORT} '${params.envs}'"
                         sh "ls -l"
-                        sh "pwd"
                         sh "docker ps"
                     }
                 }
