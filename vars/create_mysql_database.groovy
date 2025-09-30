@@ -8,7 +8,7 @@ def call(Map config = [:]) {
         parameters {
             string(name: 'DB_NAME', defaultValue: config.db_name ?: '', description: '要创建的数据库名称')
             string(name: 'MYSQL_USER', defaultValue: config.mysql_user ?: '', description: '要授予权限的MySQL用户名')
-            string(name: 'MYSQL_HOST', defaultValue: config.mysql_host ?: 'localhost', description: 'MySQL服务器地址')
+            string(name: 'MYSQL_HOST', defaultValue: config.mysql_host ?: 'ydphoto.com', description: 'MySQL服务器地址')
             string(name: 'MYSQL_ROOT_USER', defaultValue: config.mysql_root_user ?: 'root', description: 'MySQL管理员用户名')
             string(name: 'MYSQL_ROOT_PASSWORD', defaultValue: config.mysql_root_password ?: '', description: 'MySQL管理员密码', trim: true)
         }

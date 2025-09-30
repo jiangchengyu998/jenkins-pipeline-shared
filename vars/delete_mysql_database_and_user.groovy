@@ -10,7 +10,7 @@ def call(Map config = [:]) {
             booleanParam(name: 'DELETE_USER', defaultValue: config.delete_user ?: false, description: '是否删除用户')
             string(name: 'DB_NAME', defaultValue: config.db_name ?: '', description: '要删除的数据库名称')
             string(name: 'MYSQL_USER', defaultValue: config.mysql_user ?: '', description: '要删除的MySQL用户名')
-            string(name: 'MYSQL_HOST', defaultValue: config.mysql_host ?: '192.168.101.51', description: 'MySQL服务器地址')
+            string(name: 'MYSQL_HOST', defaultValue: config.mysql_host ?: 'ydphoto.com', description: 'MySQL服务器地址')
             string(name: 'MYSQL_ROOT_USER', defaultValue: config.mysql_root_user ?: 'root', description: 'MySQL管理员用户名')
             string(name: 'MYSQL_ROOT_PASSWORD', defaultValue: config.mysql_root_password ?: '', description: 'MySQL管理员密码', trim: true)
         }
