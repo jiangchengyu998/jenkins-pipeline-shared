@@ -102,6 +102,9 @@ def call(Map config = [:]) {
                         // 从 shared library 的 resources 中加载 deploy.sh
                         def scriptContent = libraryResource('deploy.sh')
                         writeFile file: 'deploy.sh', text: scriptContent
+                        def javaScriptContent = libraryResource('Dockerfile.java')
+                        writeFile file: 'Dockerfile.java', text: javaScriptContent
+
                         sh "pwd"
                         sh 'chmod +x deploy.sh'
 

@@ -8,31 +8,55 @@ envs=$3
 project_name=${code_dir##*/}
 
 # 检测项目语言类型
-#detect_language() {
-#    local dir=$1
-#
-#    # 检查是否是Java项目
-#    if [ -f "$dir/pom.xml" ]; then
-#        echo "java"
-#    elif [ -f "$dir/build.gradle" ] || [ -f "$dir/build.gradle.kts" ]; then
-#        echo "java"
-#    # 检查是否是Node.js项目
-#    elif [ -f "$dir/package.json" ]; then
-#        echo "nodejs"
-#    # 检查是否是Python项目
-#    elif [ -f "$dir/requirements.txt" ] || [ -f "$dir/setup.py" ] || [ -f "$dir/pyproject.toml" ]; then
-#        echo "python"
-#    # 检查是否是Go项目
-#    elif [ -f "$dir/go.mod" ]; then
-#        echo "golang"
-#    else
-#        echo "unknown"
-#    fi
-#}
+detect_language() {
+    local dir=$1
+
+    # 检查是否是Java项目
+    if [ -f "$dir/pom.xml" ]; then
+        echo "java"
+    elif [ -f "$dir/build.gradle" ] || [ -f "$dir/build.gradle.kts" ]; then
+        echo "java"
+    # 检查是否是Node.js项目
+    elif [ -f "$dir/package.json" ]; then
+        echo "nodejs"
+    # 检查是否是Python项目
+    elif [ -f "$dir/requirements.txt" ] || [ -f "$dir/setup.py" ] || [ -f "$dir/pyproject.toml" ]; then
+        echo "python"
+    # 检查是否是Go项目
+    elif [ -f "$dir/go.mod" ]; then
+        echo "golang"
+    else
+        echo "unknown"
+    fi
+}
 
 # 检测语言类型
-#language=$(detect_language "$code_dir")
+language=$(detect_language "$code_dir")
 #echo "检测到项目类型: $language"
+
+# 查看${code_dir}中是否有Dockerfile，如果没有，则根据项目语言类型进行选择Dockerfile
+if [ ! -f "${code_dir}/Dockerfile" ]; then
+  echo "未找到Dockerfile，根据项目语言类型进行选择Dockerfile"
+  case $language in
+    java)
+      echo "使用Dockerfile.java"
+      cp ./Dockerfile.java ${code_dir}/Dockerfile
+      ;;
+    nodejs)
+      cp ./Dockerfile.nodejs ${code_dir}/Dockerfile
+      ;;
+    python)
+      cp ./Dockerfile.python ${code_dir}/Dockerfile
+      ;;
+    golang)
+      cp ./Dockerfile.golang ${code_dir}/Dockerfile
+      ;;
+    *)
+      echo "不支持的语言类型: $language"
+      exit 1
+      ;;
+  esac
+fi
 
 # 制作镜像
 docker build -t ${project_name} --build-arg SERVER_PORT=${api_port} ${code_dir}
