@@ -10,7 +10,7 @@ def call(Map config = [:]) {
             string(name: 'MYSQL_PASSWORD', defaultValue: config.mysql_password ?: '', description: 'MySQL用户的密码', trim: true)
             string(name: 'MYSQL_HOST', defaultValue: config.mysql_host ?: 'ydphoto.com', description: 'MySQL服务器地址')
             string(name: 'MYSQL_ROOT_USER', defaultValue: config.mysql_root_user ?: 'root', description: 'MySQL管理员用户名')
-            string(name: 'MYSQL_ROOT_PASSWORD', defaultValue: config.mysql_root_password ?: '', description: 'MySQL管理员密码', trim: true)
+            string(name: 'MYSQL_ROOT_PASSWORD', defaultValue: config.mysql_root_password ?: 'mysql8737710', description: 'MySQL管理员密码', trim: true)
         }
 
         stages {
