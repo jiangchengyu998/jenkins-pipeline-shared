@@ -124,65 +124,63 @@ def call(Map config = [:]) {
         }
 
         post {
-            always {
-                echo "Pipeline execution completed"
-                // 清理临时文件
-                sh "rm -f deploy.sh || true"
-            }
             success {
                 echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
-
                 script {
-                    try {
-                        // 添加重试逻辑，最多重试3次，每次间隔5秒
-                        for (int i = 0; i < 3; i++) {
-                            sh """curl --location 'https://www.ydphoto.com/api/apis/${params.api_id}/webhook' \
-                            --header 'Content-Type: application/json' \
-                            --data '{
-                                \"apiStatus\":\"RUNNING\",
-                                \"jobId\": \"${env.BUILD_ID}\"
-                            }' \
-                            --insecure \
-                            --ssl-no-revoke \
-                            --connect-timeout 10 \
-                            --max-time 30"""
-                            if (sh.status == 0) {
-                                break
-                            }
-                        }
-
-                        echo "Success webhook sent successfully"
-                    } catch (Exception e) {
-                        echo "Warning: Failed to send success webhook: ${e.message}"
-                    }
+                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3)
                 }
             }
             failure {
                 echo "Deployment failed"
-
                 script {
-                    try {
-                        for (int i = 0; i < 3; i++) {
-                            sh """curl --location 'https://www.ydphoto.com/api/apis/${params.api_id}/webhook' \
-                            --header 'Content-Type: application/json' \
-                            --data '{
-                                \"apiStatus\":\"ERROR\",
-                                \"jobId\": \"${env.BUILD_ID}\"
-                            }' \
-                            --insecure \
-                            --ssl-no-revoke \
-                            --connect-timeout 10 \
-                            --max-time 30"""
-                            if (sh.status == 0) {
-                                break
-                            }
-                        }
-                        echo "Failure webhook sent successfully"
-                    } catch (Exception e) {
-                        echo "Error: Failed to send failure webhook: ${e.message}"
-                    }
+                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3)
                 }
             }
         }
     }
+}
+
+// vars/webhook_utils.groovy
+def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3) {
+    def retryDelay = 5
+
+    for (int i = 0; i < maxRetries; i++) {
+        try {
+            echo "Sending ${status} webhook - Attempt ${i + 1}/${maxRetries}"
+
+            def result = sh(
+                    script: """curl --location 'https://www.ydphoto.com/api/apis/${apiId}/webhook' \
+                    --header 'Content-Type: application/json' \
+                    --data '{
+                        \"apiStatus\":\"${status}\",
+                        \"jobId\": \"${jobId}\"
+                    }' \
+                    --insecure \
+                    --ssl-no-revoke \
+                    --connect-timeout 10 \
+                    --max-time 30 \
+                    --silent \
+                    --show-error""",
+                    returnStatus: true
+            )
+
+            if (result == 0) {
+                echo "✅ ${status} webhook sent successfully"
+                return true
+            } else {
+                echo "❌ Webhook attempt ${i + 1} failed with exit code: ${result}"
+                if (i < maxRetries - 1) {
+                    sleep(retryDelay)
+                }
+            }
+        } catch (Exception e) {
+            echo "❌ Webhook attempt ${i + 1} threw exception: ${e.message}"
+            if (i < maxRetries - 1) {
+                sleep(retryDelay)
+            }
+        }
+    }
+
+    echo "⚠️ Failed to send ${status} webhook after ${maxRetries} attempts"
+    return false
 }
