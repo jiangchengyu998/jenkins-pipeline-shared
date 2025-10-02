@@ -3,9 +3,12 @@
 code_dir=$1
 api_port=$2
 envs=$3
+project_name=$4
 
 # 获取code_dir 最后一个/后面的字符串作为项目名
-project_name=${code_dir##*/}
+if [ -z "$project_name" ]; then
+    project_name=${code_dir##*/}
+fi
 
 # 检测项目语言类型
 detect_language() {

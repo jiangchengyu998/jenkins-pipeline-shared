@@ -20,6 +20,7 @@ def call(Map config = [:]) {
             string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables')
             string(name: 'api_id', defaultValue: config.api_id ?: '', description: 'API ID')
             string(name: 'gitToken', defaultValue: config.gitToken ?: '', description: 'Git gitToken for authentication')
+            string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'api_name')
         }
 
         stages {
@@ -109,7 +110,7 @@ def call(Map config = [:]) {
                         sh 'chmod +x deploy.sh'
 
                         // 执行部署脚本
-                        sh "./deploy.sh ${code_dir} ${params.API_PORT} '${params.envs}'"
+                        sh "./deploy.sh ${code_dir} ${params.API_PORT} '${params.envs}' ${params.api_name}"
 
                         // 验证部署结果
                         sh "ls -la"

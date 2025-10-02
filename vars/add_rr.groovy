@@ -1,4 +1,4 @@
-// vars/deploy_api.groovy
+// vars/add_rr.groovy
 def call(Map config = [:]) {
     pipeline {
         agent { label config.exe_node ?: 'w-ubuntu'}
