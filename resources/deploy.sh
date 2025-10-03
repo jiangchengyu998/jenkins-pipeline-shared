@@ -88,12 +88,13 @@ docker rm -f ${project_name} || true
 envs=$(echo $envs | jq -r 'to_entries | map("\(.key)=\(.value)") | join(" ")')
 echo "环境变量: $envs"
 if [ -n "$envs" ]; then
-  docker run -d -p ${api_port}:${api_port} --name ${project_name} $(echo $envs | xargs -n1 echo -e | sed 's/^/-e /') ${project_name}
+  # --restart=always
+  docker run -d -p ${api_port}:${api_port} --name ${project_name} --restart=always $(echo $envs | xargs -n1 echo -e | sed 's/^/-e /') ${project_name}
   echo "部署成功:${project_name},port: ${api_port}!"
   exit 0
 fi
 
-docker run -d -p ${api_port}:${api_port} --name ${project_name} ${project_name}
+docker run -d -p ${api_port}:${api_port} --name ${project_name} --restart=always ${project_name}
 
 if [ $? -eq 0 ]; then
   echo "部署成功:${project_name},port: ${api_port}!"
