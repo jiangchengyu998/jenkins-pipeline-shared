@@ -144,10 +144,11 @@ ensure_log_collector() {
             if ! docker ps | grep -q logspout; then
                 echo "启动 Logspout 日志收集器..."
                 docker run -d --name="logspout" \
-                    --restart=always \
-                    --volume=/var/run/docker.sock:/var/run/docker.sock \
-                    gliderlabs/logspout:latest \
-                    syslog+udp://localhost:514
+                  --restart=always \
+                  --publish=8000:80 \
+                  --volume=/var/run/docker.sock:/var/run/docker.sock \
+                  gliderlabs/logspout:latest \
+                  syslog+tcp://$(hostname -I | awk '{print $1}'):514
             fi
             ;;
         fluentd)
