@@ -135,6 +135,33 @@ if [ -n "$envs" ] && [ "$envs" != "null" ]; then
     fi
 fi
 
+# 在构建和部署应用之前，确保日志收集器运行
+ensure_log_collector() {
+    local collector=$1
+
+    case $collector in
+        logspout)
+            if ! docker ps | grep -q logspout; then
+                echo "启动 Logspout 日志收集器..."
+                docker run -d --name="logspout" \
+                    --restart=always \
+                    --volume=/var/run/docker.sock:/var/run/docker.sock \
+                    gliderlabs/logspout:latest \
+                    syslog+udp://192.168.101.51:514
+            fi
+            ;;
+        fluentd)
+            if ! docker ps | grep -q fluentd; then
+                echo "启动 Fluentd 日志收集器..."
+                # 启动 Fluentd 的代码
+            fi
+            ;;
+    esac
+}
+
+# 在部署应用容器前调用
+ensure_log_collector "logspout"
+
 # 运行容器
 echo "启动容器..."
 container_id=$(eval docker run -d \
