@@ -147,7 +147,7 @@ ensure_log_collector() {
                     --restart=always \
                     --volume=/var/run/docker.sock:/var/run/docker.sock \
                     gliderlabs/logspout:latest \
-                    syslog+udp://192.168.101.51:514
+                    syslog+udp://localhost:514
             fi
             ;;
         fluentd)
