@@ -21,6 +21,7 @@ def call(Map config = [:]) {
             string(name: 'api_id', defaultValue: config.api_id ?: '', description: 'API ID')
             string(name: 'gitToken', defaultValue: config.gitToken ?: '', description: 'Git gitToken for authentication')
             string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'api_name')
+            string(name: 'CALL_BACK_HOST', defaultValue: config.call_back_host ?: '', description: '构建完成后的回调地址')
         }
 
         stages {
@@ -128,13 +129,13 @@ def call(Map config = [:]) {
             success {
                 echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
                 script {
-                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3)
+                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
             failure {
                 echo "Deployment failed"
                 script {
-                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3)
+                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
         }
@@ -142,7 +143,7 @@ def call(Map config = [:]) {
 }
 
 // vars/webhook_utils.groovy
-def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3) {
+def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost) {
     def retryDelay = 5
 
     for (int i = 0; i < maxRetries; i++) {
@@ -150,7 +151,7 @@ def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3) {
             echo "Sending ${status} webhook - Attempt ${i + 1}/${maxRetries}"
 
             def result = sh(
-                    script: """curl --location 'https://www.ydphoto.com/api/apis/${apiId}/webhook' \
+                    script: """curl --location '${callBackHost}/api/apis/${apiId}/webhook' \
                     --header 'Content-Type: application/json' \
                     --data '{
                         \"apiStatus\":\"${status}\",
