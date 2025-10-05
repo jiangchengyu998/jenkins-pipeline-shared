@@ -70,16 +70,16 @@ if [ ! -f "${code_dir}/Dockerfile" ]; then
     case $language in
         java)
             echo "使用Dockerfile.java模板"
-            cp ./Dockerfile.java "${code_dir}/Dockerfile"
+            cp ./Dockerfile_java8 "${code_dir}/Dockerfile"
             ;;
         nodejs)
-            cp ./Dockerfile.nodejs "${code_dir}/Dockerfile"
+            cp ./Dockerfile_nodejs "${code_dir}/Dockerfile"
             ;;
         python)
-            cp ./Dockerfile.python "${code_dir}/Dockerfile"
+            cp ./Dockerfile_python "${code_dir}/Dockerfile"
             ;;
         golang)
-            cp ./Dockerfile.golang "${code_dir}/Dockerfile"
+            cp ./Dockerfile_golang "${code_dir}/Dockerfile"
             ;;
         *)
             echo "错误: 不支持的语言类型: $language"
