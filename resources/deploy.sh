@@ -114,11 +114,10 @@ if [ "$language" = "nodejs" ]; then
                             # 只取=前面的一段
                             dockerfile_line=$(grep -n "ENV ${line%=*}" "${code_dir}/Dockerfile" | cut -d: -f1)
                             echo "dockerfile_line : $dockerfile_line"
+                            # 将 $line 的 = 换为空格
                             if [ -n "$dockerfile_line" ]; then
-                                sed -i "${dockerfile_line}s/^.*$/ENV $line/" "${code_dir}/Dockerfile"
+                                sed -i "${dockerfile_line}s/^.*$/ENV ${line//=/ }/" "${code_dir}/Dockerfile"
                             fi
-                            echo "  Dockerfile: ${code_dir}/Dockerfile"
-                            cat "${code_dir}/Dockerfile"
                         fi
                     fi
                 done <<< "$env_vars"
@@ -128,6 +127,8 @@ if [ "$language" = "nodejs" ]; then
         fi
     fi
 fi
+
+echo "  Dockerfile: ${code_dir}/Dockerfile"
 
 docker build -t "${project_name}" \
     --build-arg SERVER_PORT="${api_port}" \
