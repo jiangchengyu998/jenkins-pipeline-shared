@@ -98,11 +98,39 @@ fi
 
 # 构建镜像
 echo "开始构建Docker镜像..."
+# 如果是nextjs项目，解析环境变量中是否有NEXT_PUBLIC开头的，如果有则替换Dockerfile中的NEXT_PUBLIC开头的配置
+if [ "$language" = "nodejs" ]; then
+    if [ -n "$envs" ] && [ "$envs" != "null" ]; then
+        echo "解析环境变量..."
+        # 使用jq解析JSON环境变量
+        if command -v jq > /dev/null 2>&1; then
+            env_vars=$(echo "$envs" | jq -r 'to_entries | map("\(.key)=\(.value)") | .[]' 2>/dev/null || echo "")
+            if [ -n "$env_vars" ]; then
+                while IFS= read -r line; do
+                    if [ -n "$line" ]; then
+                        if [[ $line == NEXT_PUBLIC* ]]; then
+                            echo "  环境变量: $line"
+                            dockerfile_line=$(grep -n "ENV $line" "${code_dir}/Dockerfile" | cut -d: -f1)
+                            if [ -n "$dockerfile_line" ]; then
+                                sed -i "${dockerfile_line}s/^.*$/ENV $line/" "${code_dir}/Dockerfile"
+                            fi
+                            echo "  Dockerfile: ${code_dir}/Dockerfile"
+                        fi
+                    fi
+                done <<< "$env_vars"
+            fi
+        else
+            echo "警告: 未找到jq命令，无法解析JSON环境变量"
+        fi
+    fi
+fi
+
 docker build -t "${project_name}" \
     --build-arg SERVER_PORT="${api_port}" \
     --label "project=${project_name}" \
     --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
     "${code_dir}"
+
 
 if [ $? -ne 0 ]; then
     echo "错误: 镜像构建失败: ${project_name}"
