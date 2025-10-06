@@ -110,12 +110,15 @@ if [ "$language" = "nodejs" ]; then
                     if [ -n "$line" ]; then
                         if [[ $line == NEXT_PUBLIC* ]]; then
                             echo "  环境变量: $line"
+                            echo "  环境变量1: ${line%=*}"
                             # 只取=前面的一段
                             dockerfile_line=$(grep -n "ENV ${line%=*}" "${code_dir}/Dockerfile" | cut -d: -f1)
+                            echo "dockerfile_line : $dockerfile_line"
                             if [ -n "$dockerfile_line" ]; then
                                 sed -i "${dockerfile_line}s/^.*$/ENV $line/" "${code_dir}/Dockerfile"
                             fi
                             echo "  Dockerfile: ${code_dir}/Dockerfile"
+                            cat "${code_dir}/Dockerfile"
                         fi
                     fi
                 done <<< "$env_vars"
