@@ -38,7 +38,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def mysqlCheck = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SELECT 1'",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SELECT 1'",
                                 returnStatus: true
                         )
 
@@ -55,7 +55,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def dbExists = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SHOW DATABASES LIKE \"${params.DB_NAME}\"' | grep -o \"${params.DB_NAME}\"",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SHOW DATABASES LIKE \"${params.DB_NAME}\"' | grep -o \"${params.DB_NAME}\"",
                                 returnStatus: true
                         )
 
@@ -72,7 +72,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def userExists = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
                                 returnStatus: true
                         )
 
@@ -101,7 +101,7 @@ FLUSH PRIVILEGES;
 
                         writeFile file: 'create_db.sql', text: sqlCommands
 
-                        sh "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' < create_db.sql"
+                        sh "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' < create_db.sql"
 
                         echo "数据库创建和权限授予成功"
                     }
@@ -112,7 +112,7 @@ FLUSH PRIVILEGES;
                 steps {
                     script {
                         def dbCheck = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SHOW DATABASES LIKE \"${params.DB_NAME}\"' | grep -o \"${params.DB_NAME}\"",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SHOW DATABASES LIKE \"${params.DB_NAME}\"' | grep -o \"${params.DB_NAME}\"",
                                 returnStatus: true
                         )
 
@@ -122,7 +122,7 @@ FLUSH PRIVILEGES;
 
                         // 验证权限是否授予成功
                         def privCheck = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SHOW GRANTS FOR '${params.MYSQL_USER}'@'%'\" | grep -o \"${params.DB_NAME}\"",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SHOW GRANTS FOR '${params.MYSQL_USER}'@'%'\" | grep -o \"${params.DB_NAME}\"",
                                 returnStatus: true
                         )
 

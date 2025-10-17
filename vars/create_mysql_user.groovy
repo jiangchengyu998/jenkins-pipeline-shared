@@ -37,7 +37,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def mysqlCheck = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SELECT 1'",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e 'SELECT 1'",
                                 returnStatus: true
                         )
 
@@ -54,7 +54,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def userExists = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
                                 returnStatus: true
                         )
 
@@ -85,7 +85,7 @@ FLUSH PRIVILEGES;
 
                             writeFile file: 'create_user.sql', text: sqlCommands
 
-                            sh "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' < create_user.sql"
+                            sh "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' < create_user.sql"
 
                             echo "用户创建成功"
                         } else {
@@ -100,7 +100,7 @@ FLUSH PRIVILEGES;
                     script {
                         // 无论用户是否已存在，都执行验证步骤
                         def userCheck = sh(
-                                script: "mysql --ssl-mode=DISABLED -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
+                                script: "mysql --skip-ssl -h ${params.MYSQL_HOST} -u ${params.MYSQL_ROOT_USER} -p'${params.MYSQL_ROOT_PASSWORD}' -e \"SELECT User FROM mysql.user WHERE User = '${params.MYSQL_USER}'\" | grep -o \"${params.MYSQL_USER}\"",
                                 returnStatus: true
                         )
 
