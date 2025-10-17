@@ -17,6 +17,5 @@ RUN apt-get update && \
     git \
     vim \
     nano \
-    gnupg \
-    software-properties-common && \
+    gnupg &&\
     rm -rf /var/lib/apt/lists/*
