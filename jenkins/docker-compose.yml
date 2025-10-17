@@ -17,8 +17,8 @@ services:
       - /home/hanke/jenkins/data/:/var/jenkins_home/
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker:ro
-      - /usr/local/bin/aliyun:/usr/local/bin/aliyun
-      - /root/.aliyun:/root/.aliyun
+      - /usr/local/bin/aliyun:/usr/local/bin/aliyun:ro
+      - /home/hanke/.aliyun:/root/.aliyun
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     environment:
