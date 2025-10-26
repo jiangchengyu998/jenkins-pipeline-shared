@@ -77,7 +77,7 @@ def call(Map config = [:]) {
                         if (!USER_ALREADY_EXISTS) {
                             def sqlCommands = """
 -- 创建用户并设置密码
-CREATE USER '${params.MYSQL_USER}'@'%' IDENTIFIED BY '${params.MYSQL_PASSWORD}' WITH mysql_native_password;
+CREATE USER '${params.MYSQL_USER}'@'%' IDENTIFIED WITH mysql_native_password BY '${params.MYSQL_PASSWORD}' ;
 
 -- 刷新权限使更改生效
 FLUSH PRIVILEGES;
