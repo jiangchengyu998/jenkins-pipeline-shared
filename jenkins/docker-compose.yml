@@ -11,12 +11,12 @@ services:
       - 50000:50000
     volumes:
       - /var/jenkins/data:/var/jenkins_home/
-#      - /var/run/docker.sock:/var/run/docker.sock
-#      - /usr/bin/docker:/usr/bin/docker:ro
-#      - /usr/local/bin/aliyun:/usr/local/bin/aliyun:ro
-#      - /home/hanke/.aliyun:/root/.aliyun
-#      - /etc/localtime:/etc/localtime:ro
-#      - /etc/timezone:/etc/timezone:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/local/bin/aliyun:/usr/local/bin/aliyun:ro
+      - /home/hanke/.aliyun:/root/.aliyun
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     environment:
       - JAVA_OPTS=-Xms1024m -Xmx4096m
     mem_limit: 4g
