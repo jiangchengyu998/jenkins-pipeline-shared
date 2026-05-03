@@ -19,6 +19,7 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /usr/local/bin/kubectl:/usr/local/bin/kubectl:ro
       - /etc/rancher/k3s/k3s.yaml:/root/.kube/config:ro
+      - /usr/local/bin/helm:/usr/local/bin/helm:ro
     environment:
       - JAVA_OPTS=-Xms1024m -Xmx4096m
     mem_limit: 4g
