@@ -18,8 +18,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
       - /usr/local/bin/kubectl:/usr/local/bin/kubectl:ro
-      - /etc/rancher/k3s/k3s.yaml:/root/.kube/config:ro
-      - /etc/rancher/k3s/k3s.yaml:/etc/rancher/k3s/k3s.yaml:ro
+      - /root/k3s.yaml:/root/.kube/config:ro
+      - /root/k3s.yaml:/etc/rancher/k3s/k3s.yaml:ro
       - /usr/local/bin/helm:/usr/local/bin/helm:ro
     environment:
       - JAVA_OPTS=-Xms1024m -Xmx4096m
