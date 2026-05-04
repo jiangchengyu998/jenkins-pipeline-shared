@@ -131,11 +131,11 @@ fi
 echo "  Dockerfile: ${code_dir}/Dockerfile"
 cat "${code_dir}/Dockerfile"
 
-docker build -t "${project_name}" \
-    --build-arg SERVER_PORT="${api_port}" \
-    --label "project=${project_name}" \
-    --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
-    "${code_dir}"
+#docker build -t "${project_name}" \
+#    --build-arg SERVER_PORT="${api_port}" \
+#    --label "project=${project_name}" \
+#    --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
+#    "${code_dir}"
 
 
 if [ $? -ne 0 ]; then
