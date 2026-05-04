@@ -80,7 +80,7 @@ deploy_helm() {
   echo "helm upgrade --install ${api_name} ${chart_path} -f ${tmpfile}"
   helm upgrade --install "${api_name}" "${chart_path}" \
     -f "${tmpfile}" \
-    --atomic \
+    --rollback-on-failure \
     --wait \
     --timeout 180s
 
