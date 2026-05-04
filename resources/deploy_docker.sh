@@ -14,9 +14,6 @@ api_port=$2
 envs=$3
 project_name=$4
 
-harbor_username=$5
-harbor_password=$6
-
 # 验证代码目录是否存在
 if [ ! -d "$code_dir" ]; then
     echo "错误: 代码目录不存在: $code_dir"
@@ -93,13 +90,6 @@ else
     echo "使用项目中的Dockerfile"
 fi
 
-# 获取项目的版本
-version=$(grep -oP '(?<=<version>)[^<]+' "${code_dir}/pom.xml" | head -1)
-if [ -n "$version" ]; then
-    echo "项目版本: $version"
-fi
-
-
 # 检查Docker是否运行
 if ! docker info > /dev/null 2>&1; then
     echo "错误: Docker守护进程未运行"
@@ -154,24 +144,57 @@ if [ $? -ne 0 ]; then
 fi
 echo "镜像构建完成: ${project_name}"
 
-# 登录192.168.101.75:8089 仓库
-echo "登录Docker仓库... harbor_username: ${harbor_username}, harbor_password: ${harbor_password}"
-docker login 192.168.101.75:8089 -u "${harbor_username}" -p "${harbor_password}"
-if [ $? -ne 0 ]; then
-    echo "错误: Docker登录失败"
-    exit 1
+# 停止并删除旧的容器
+echo "清理旧容器..."
+docker stop "${project_name}" > /dev/null 2>&1 || true
+docker rm -f "${project_name}" > /dev/null 2>&1 || true
+
+# 准备环境变量
+docker_envs=""
+if [ -n "$envs" ] && [ "$envs" != "null" ]; then
+    echo "解析环境变量..."
+    # 使用jq解析JSON环境变量
+    if command -v jq > /dev/null 2>&1; then
+        env_vars=$(echo "$envs" | jq -r 'to_entries | map("\(.key)=\(.value)") | .[]' 2>/dev/null || echo "")
+        if [ -n "$env_vars" ]; then
+            while IFS= read -r line; do
+                if [ -n "$line" ]; then
+                    docker_envs="$docker_envs -e \"$line\""
+                    echo "  环境变量: $line"
+                fi
+            done <<< "$env_vars"
+        fi
+    else
+        echo "警告: 未找到jq命令，无法解析JSON环境变量"
+    fi
 fi
 
-# 给镜像打标签
-image_tag="192.168.101.75:8089/library/${project_name}:$version"
-docker tag "${project_name}" "${image_tag}"
-if [ $? -ne 0 ]; then
-    echo "错误: 镜像打标签失败"
-    exit 1
-fi
-echo "镜像打标签完成: ${image_tag}"
-docker push "${image_tag}"
-if [ $? -ne 0 ]; then
-    echo "错误: 镜像推送失败"
+# 运行容器
+echo "启动容器..."
+container_id=$(eval docker run -d \
+    -p "${api_port}:${api_port}" \
+    --name "${project_name}" \
+    --restart=always \
+    --log-driver json-file \
+    --log-opt max-size=10m \
+    --log-opt max-file=3 \
+    -v "${log_dir}:/app/logs" \
+    -v "/etc/timezone:/etc/timezone:ro" \
+    -v "/etc/localtime:/etc/localtime:ro" \
+    $docker_envs \
+    "${project_name}")
+
+if [ $? -eq 0 ]; then
+    echo "部署成功!"
+    echo "项目名称: ${project_name}"
+    echo "访问端口: ${api_port}"
+    echo "容器ID: ${container_id:0:12}"
+    echo "日志目录: ${log_dir}"
+    echo ""
+    echo "查看容器状态: docker ps -f name=${project_name}"
+    echo "查看容器日志: docker logs -f ${project_name}"
+    echo "查看应用日志: tail -f ${log_dir}/*.log"
+else
+    echo "错误: 容器启动失败"
     exit 1
 fi

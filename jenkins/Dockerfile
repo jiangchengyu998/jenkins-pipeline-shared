@@ -17,5 +17,5 @@ RUN apt-get update && \
     git \
     vim \
     nano \
-    gnupg && \
+    gnupg &&\
     rm -rf /var/lib/apt/lists/*

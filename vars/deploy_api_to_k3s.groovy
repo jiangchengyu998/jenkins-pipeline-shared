@@ -1,4 +1,4 @@
-// vars/deploy_api.groovy
+// vars/deploy_api_to_k3s.groovy
 def call(Map config = [:]) {
     pipeline {
         agent { label config.exe_node ?: 'w-ubuntu'}
@@ -31,6 +31,7 @@ def call(Map config = [:]) {
                         echo "Cleaning workspace..."
                         deleteDir()
                         echo "Workspace cleaned successfully"
+                        sh "ls -la"
                     }
                 }
             }
@@ -91,7 +92,7 @@ def call(Map config = [:]) {
                 }
             }
 
-            stage('Deploy') {
+            stage('CI') {
                 steps {
                     script {
                         def repoName = params.GIT_URL.tokenize('/').last().replace('.git', '')
@@ -101,17 +102,29 @@ def call(Map config = [:]) {
                         echo "Code directory: ${code_dir}"
                         echo "API port: ${params.API_PORT}"
 
-                        // 从 shared library 的 resources 中加载 deploy_docker.sh
-                        def scriptContent = libraryResource('deploy_docker.sh')
-                        writeFile file: 'deploy_docker.sh', text: scriptContent
+                        // 从 shared library 的 resources 中加载 deploy.sh
+                        def scriptContent = libraryResource('deploy.sh')
+                        writeFile file: 'deploy.sh', text: scriptContent
                         def javaScriptContent = libraryResource('Dockerfile_java8')
                         writeFile file: 'Dockerfile_java8', text: javaScriptContent
 
                         sh "pwd"
-                        sh 'chmod +x deploy_docker.sh'
+                        sh 'chmod +x deploy.sh'
 
+                        // get version from pom.xml
+                        def version = sh(
+                                script: "cat ${code_dir}/pom.xml | grep '<version>' | head -1 | sed 's/.*<version>\\(.*\\)<\\/version>.*/\\1/'",
+                                returnStdout: true
+                        ).trim()
+                        echo "Extracted version from pom.xml: ${version}"
+                        env.VERSION = version
+
+
+//                        use credentials 097d9c91-53ff-4068-8a37-9b5a3cd7485d get username and password, pass them to deploy.sh as parameters.
+                        withCredentials([usernamePassword(credentialsId: '097d9c91-53ff-4068-8a37-9b5a3cd7485d', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                            sh "./deploy.sh ${code_dir} ${params.API_PORT} '${params.envs}' ${params.api_name} ${USERNAME} ${PASSWORD}"
+                        }
                         // 执行部署脚本
-                        sh "./deploy_docker.sh ${code_dir} ${params.API_PORT} '${params.envs}' ${params.api_name}"
 
                         // 验证部署结果
                         sh "ls -la"
@@ -123,19 +136,81 @@ def call(Map config = [:]) {
                     }
                 }
             }
+            // run on node with label 'w-ubuntu-k3s' to deploy to k3s cluster
+            stage('CD') {
+                agent { label 'w-ubuntu-k3s' }
+                steps {
+                    script {
+                        // 1️⃣ checkout 应用代码（如果需要）
+                        // 2️⃣ checkout Helm 仓库
+                        dir('devops-learn') {
+                            git(
+                                    url: 'http://192.168.101.75:3000/admin/devops-learn.git',
+                                    branch: 'main'
+//                                    credentialsId: 'git-ssh-key'   // 你 Jenkins 配的凭证
+                            )
+                        }
+
+                        // 3️⃣ 定义 charts_dir
+                        def charts_dir = "${env.WORKSPACE}/devops-learn/charts"
+
+                        // 4️⃣ 验证目录（非常重要）
+                        sh """
+                            echo "==== 检查 Helm charts ===="
+                            ls -al ${charts_dir}
+                            ls -al ${charts_dir}/springboot-api
+                        """
+
+                        // 5️⃣ 准备 deploy 脚本（来自 shared library）
+                        def scriptContent = libraryResource('deploy-helm.sh')
+                        writeFile file: 'deploy_helm.sh', text: scriptContent
+                        sh 'chmod +x deploy_helm.sh'
+
+                        // 6️⃣ 变量定义
+                        def chartPath = "${charts_dir}/springboot-api"
+                        def host = "${params.api_name}.ydphoto.com"
+                        def releaseName = "${params.api_name}"
+                        def version = "${env.VERSION}"
+                        def envName = "dev"
+
+                        // 7️⃣ 打印信息
+                        echo """
+                            ===== Helm Deploy =====
+                            chartPath: ${chartPath}
+                            host: ${host}
+                            releaseName: ${releaseName}
+                            =======================
+                            """
+
+                        // 8️⃣ 执行部署
+                        sh """
+                                set -e
+                                ./deploy_helm.sh \
+                                    ${chartPath} \
+                                    ${host} \
+                                    ${releaseName} \
+                                    ${version} \
+                                    ${envName}
+                            """
+                    }
+                }
+            }
         }
 
         post {
             success {
                 echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
                 script {
-                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    echo "准备发送 RUNNING 状态的 webhook 回调"
+//                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
             failure {
                 echo "Deployment failed"
                 script {
-                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    echo "准备发送 RUNNING 状态的 webhook 回调"
+
+//                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
         }
