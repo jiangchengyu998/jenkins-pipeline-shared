@@ -145,7 +145,7 @@ def call(Map config = [:]) {
                         // 2️⃣ checkout Helm 仓库
                         dir('devops-learn') {
                             git(
-                                    url: 'http://192.168.101.75:3000/admin/devops-learn.git',
+                                    url: 'https://github.com/jiangchengyu998/devops-learn.git',
                                     branch: 'main'
 //                                    credentialsId: 'git-ssh-key'   // 你 Jenkins 配的凭证
                             )

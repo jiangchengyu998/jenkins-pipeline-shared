@@ -155,15 +155,15 @@ fi
 echo "镜像构建完成: ${project_name}"
 
 # 登录192.168.101.75:8089 仓库
-echo "登录Docker仓库... harbor_username: ${harbor_username}, harbor_password: ${harbor_password}"
-docker login 192.168.101.75:8089 -u "${harbor_username}" -p "${harbor_password}"
-if [ $? -ne 0 ]; then
-    echo "错误: Docker登录失败"
-    exit 1
-fi
+#echo "登录Docker仓库... harbor_username: ${harbor_username}, harbor_password: ${harbor_password}"
+#docker login 192.168.101.75:8089 -u "${harbor_username}" -p "${harbor_password}"
+#if [ $? -ne 0 ]; then
+#    echo "错误: Docker登录失败"
+#    exit 1
+#fi
 
 # 给镜像打标签
-image_tag="192.168.101.75:8089/library/${project_name}:$version"
+image_tag="192.168.50.18:5000/${project_name}:$version"
 docker tag "${project_name}" "${image_tag}"
 if [ $? -ne 0 ]; then
     echo "错误: 镜像打标签失败"
