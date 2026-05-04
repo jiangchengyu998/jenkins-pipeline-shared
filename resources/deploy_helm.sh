@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
 
-# deploy-helm.sh - 部署 Helm Chart 的脚本（POSIX-sh 兼容）
+# deploy_helm.sh - 部署 Helm Chart 的脚本（POSIX-sh 兼容）
 # 用法（位置参数）：
-#   deploy-helm.sh <chart_path> <hostname> <api_name> <tag> <environment>
+#   deploy_helm.sh <chart_path> <hostname> <api_name> <tag> <environment>
 # 例如：
-#   ./resources/deploy-helm.sh ../charts/springboot-api api.example.com demo-api 1.0.0 prod
+#   ./resources/deploy_helm.sh ../charts/springboot-api api.example.com demo-api 1.0.0 prod
 ls -al
 check_helm() {
   if ! command -v helm >/dev/null 2>&1; then
@@ -78,7 +78,7 @@ deploy_helm() {
 
   echo "正在用临时 values 文件部署: ${tmpfile}"
   echo "helm upgrade --install ${api_name} ${chart_path} -f ${tmpfile}"
-
+  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
   helm upgrade --install "${api_name}" "${chart_path}" \
     -f "${tmpfile}" \
     --wait \

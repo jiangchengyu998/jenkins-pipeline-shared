@@ -138,7 +138,7 @@ def call(Map config = [:]) {
             }
             // run on node with label 'w-ubuntu-k3s' to deploy to k3s cluster
             stage('CD') {
-                agent { label 'w-ubuntu-k3s' }
+//                agent { label 'w-ubuntu-k3s' }
                 steps {
                     script {
                         // 1️⃣ checkout 应用代码（如果需要）
@@ -162,7 +162,7 @@ def call(Map config = [:]) {
                         """
 
                         // 5️⃣ 准备 deploy 脚本（来自 shared library）
-                        def scriptContent = libraryResource('deploy-helm.sh')
+                        def scriptContent = libraryResource('deploy_helm.sh')
                         writeFile file: 'deploy_helm.sh', text: scriptContent
                         sh 'chmod +x deploy_helm.sh'
 
