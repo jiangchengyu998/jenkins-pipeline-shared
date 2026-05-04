@@ -8,13 +8,13 @@ WORKDIR /build
 
 # 先复制 pom.xml 下载依赖，加快构建
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
+RUN --mount=type=cache,id=maven,target=/root/.m2 mvn dependency:go-offline -B
 
 # 再复制源码
 COPY src ./src
 
 # 构建 jar 包（跳过测试可提高速度）
-RUN mvn clean package -DskipTests
+RUN --mount=type=cache,id=maven,target=/root/.m2 mvn clean package -DskipTests -B
 
 # ————————————————————————————————
 # 第二阶段：运行 (JRE 8)
