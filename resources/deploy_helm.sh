@@ -78,7 +78,6 @@ deploy_helm() {
 
   echo "正在用临时 values 文件部署: ${tmpfile}"
   echo "helm upgrade --install ${api_name} ${chart_path} -f ${tmpfile}"
-  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
   helm upgrade --install "${api_name}" "${chart_path}" \
     -f "${tmpfile}" \
     --wait \
