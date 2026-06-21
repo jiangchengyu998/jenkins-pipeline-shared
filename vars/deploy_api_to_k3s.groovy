@@ -202,7 +202,7 @@ def call(Map config = [:]) {
                 echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
                 script {
                     echo "准备发送 RUNNING 状态的 webhook 回调"
-//                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
             failure {
@@ -210,7 +210,7 @@ def call(Map config = [:]) {
                 script {
                     echo "准备发送 RUNNING 状态的 webhook 回调"
 
-//                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
         }
