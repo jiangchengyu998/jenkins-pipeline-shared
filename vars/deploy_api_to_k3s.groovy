@@ -157,7 +157,8 @@ def call(Map config = [:]) {
                                 "RELEASE_NAME=${releaseName}",
                                 "IMAGE_VERSION=${env.VERSION}",
                                 "HELM_ENV_NAME=${envName}",
-                                "HELM_CONTAINER_PORT=${env.CONTAINER_PORT}"
+                                "HELM_CONTAINER_PORT=${env.CONTAINER_PORT}",
+                                "HELM_APP_ENVS=${params.envs ?: ''}"
                         ]) {
                             sh(
                                     label: 'Deploy Helm release',

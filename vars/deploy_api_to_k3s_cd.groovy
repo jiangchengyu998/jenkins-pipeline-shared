@@ -22,6 +22,7 @@ def call(Map config = [:]) {
             string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'API name / Helm release name')
             string(name: 'CALL_BACK_HOST', defaultValue: config.call_back_host ?: '', description: '构建完成后的回调地址')
             string(name: 'TAG', defaultValue: config.tag ?: '', description: 'Image tag to deploy')
+            string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables as JSON')
             string(name: 'HELM_GIT_URL', defaultValue: config.helmGitUrl ?: 'git@github.com:jiangchengyu998/devops-learn.git', description: 'Helm charts repository URL')
             string(name: 'HELM_GIT_BRANCH', defaultValue: config.helmGitBranch ?: 'main', description: 'Helm charts repository branch')
             string(name: 'HELM_GIT_CREDENTIALS_ID', defaultValue: config.helmGitCredentialsId ?: '', description: 'Jenkins credentials ID for Helm repository')
@@ -87,7 +88,8 @@ def call(Map config = [:]) {
                                 "RELEASE_NAME=${releaseName}",
                                 "IMAGE_VERSION=${version}",
                                 "HELM_ENV_NAME=${envName}",
-                                "HELM_NAMESPACE_NAME=${namespace}"
+                                "HELM_NAMESPACE_NAME=${namespace}",
+                                "HELM_APP_ENVS=${params.envs ?: ''}"
                         ]) {
                             sh(
                                     label: 'Deploy Helm release',

@@ -39,6 +39,7 @@ usage() {
   KUBECONFIG       默认 /etc/rancher/k3s/k3s.yaml
   HELM_NAMESPACE  未传 namespace 参数时使用，默认 default
   HELM_CONTAINER_PORT  容器 EXPOSE 端口，用于替换 values.yaml 中的端口占位符
+  HELM_APP_ENVS   JSON 对象，写入 values.yaml 的顶层 env 列表
   HELM_TIMEOUT    默认 180s
 EOF
 }
@@ -70,6 +71,50 @@ validate_port() {
   fi
 }
 
+append_app_envs() {
+  values_file="$1"
+  app_envs="$2"
+
+  [ -n "$app_envs" ] || return 0
+  [ "$app_envs" != "null" ] || return 0
+
+  if ! command -v jq >/dev/null 2>&1; then
+    fail "HELM_APP_ENVS 有值时必须安装 jq" 2
+  fi
+
+  if ! printf '%s' "$app_envs" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    fail "HELM_APP_ENVS 必须是 JSON 对象" 2
+  fi
+
+  if ! printf '%s' "$app_envs" | jq -e 'length > 0' >/dev/null 2>&1; then
+    return 0
+  fi
+
+  tmpfile_env_yaml=$(mktemp /tmp/env-vars.XXXXXX.yaml) || { echo "mktemp 失败" >&2; exit 4; }
+  tmpfile_env_values=$(mktemp /tmp/values-env.XXXXXX.yaml) || { echo "mktemp 失败" >&2; exit 4; }
+
+  printf '%s' "$app_envs" | jq -r '
+    "env:",
+    (to_entries[] | "  - name: \(.key)\n    value: \(.value | tostring | @json)")
+  ' > "${tmpfile_env_yaml}"
+
+  awk '
+    /^env:[[:space:]]*($|#|\[\]|\{\})/ { skip = 1; next }
+    skip && /^[^[:space:]]/ { skip = 0 }
+    !skip { print }
+  ' "${values_file}" > "${tmpfile_env_values}"
+
+  {
+    cat "${tmpfile_env_values}"
+    printf '\n'
+    cat "${tmpfile_env_yaml}"
+  } > "${values_file}"
+
+  rm -f "${tmpfile_env_yaml}" "${tmpfile_env_values}"
+  tmpfile_env_yaml=""
+  tmpfile_env_values=""
+}
+
 # deploy_helm <chart_path> <hostname> <api_name> <tag> <environment> [namespace]
 deploy_helm() {
   if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
@@ -83,6 +128,7 @@ deploy_helm() {
   environment="$5"
   namespace="${6:-${HELM_NAMESPACE:-default}}"
   container_port="${HELM_CONTAINER_PORT:-}"
+  app_envs="${HELM_APP_ENVS:-}"
 
   [ -n "$chart_path" ] || fail "chart_path 不能为空" 2
   [ -n "$hostname" ] || fail "hostname 不能为空" 2
@@ -110,7 +156,9 @@ deploy_helm() {
 
   tmpfile=$(mktemp /tmp/values.XXXXXX.yaml) || { echo "mktemp 失败" >&2; exit 4; }
   tmpfile_port=""
-  trap 'rm -f "${tmpfile}" "${tmpfile_port}"' EXIT HUP INT TERM
+  tmpfile_env_yaml=""
+  tmpfile_env_values=""
+  trap 'rm -f "${tmpfile}" "${tmpfile_port}" "${tmpfile_env_yaml}" "${tmpfile_env_values}"' EXIT HUP INT TERM
 
   h_escaped=$(escape_for_sed "${hostname}")
   ap_escaped=$(escape_for_sed "${api_name}")
@@ -136,6 +184,8 @@ deploy_helm() {
     mv "${tmpfile_port}" "${tmpfile}"
     tmpfile_port=""
   fi
+
+  append_app_envs "${tmpfile}" "${app_envs}"
 
   echo "正在部署 Helm release: release=${api_name} chart=${chart_path} namespace=${namespace} containerPort=${container_port:-未设置}"
   helm upgrade --install "${api_name}" "${chart_path}" \
