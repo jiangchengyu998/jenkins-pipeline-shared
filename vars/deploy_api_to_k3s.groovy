@@ -112,12 +112,39 @@ def call(Map config = [:]) {
                         sh 'chmod +x deploy.sh'
 
                         // get version from pom.xml
-                        def version = sh(
-                                script: "cat ${code_dir}/pom.xml | grep '<version>' | head -1 | sed 's/.*<version>\\(.*\\)<\\/version>.*/\\1/'",
-                                returnStdout: true
-                        ).trim()
-                        echo "Extracted version from pom.xml: ${version}"
-                        env.VERSION = version
+                        def version = null
+                        def lg = "none"
+                        if (fileExists("${code_dir}/pom.xml")) {
+                            version = sh(
+                                    script: "cat ${code_dir}/pom.xml | grep '<version>' | head -1 | sed 's/.*<version>\\(.*\\)<\\/version>.*/\\1/'",
+                                    returnStdout: true
+                            ).trim()
+                            lg = "java"
+                            echo "Extracted version from pom.xml: ${version}"
+                        } else if (fileExists("${code_dir}/package.json")) {
+                            version = sh(
+                                    script: "cat ${code_dir}/package.json | grep '\"version\"' | head -1 | sed 's/.*\"version\"\\s*:\\s*\"\\([^\"]*\\)\".*/\\1/'",
+                                    returnStdout: true
+                            ).trim()
+                            echo "Extracted version from package.json: ${version}"
+                        } else if (fileExists("${code_dir}/setup.py")) {
+                            version = sh(
+                                    script: "grep -E \"version\\s*=\\s*['\\\"]\" ${code_dir}/setup.py | head -1 | sed \"s/.*version\\s*=\\s*['\\\"]\\([^'\\\"]*\\)['\\\"].*/\\1/\"",
+                                    returnStdout: true
+                            ).trim()
+                            echo "Extracted version from setup.py: ${version}"
+                        } else {
+                            try {
+                                version = sh(script: "cd ${code_dir} && git describe --tags --always --dirty", returnStdout: true).trim()
+                                echo "Extracted version from git describe: ${version}"
+                            } catch (Exception e) {
+                                version = 'latest'
+                                echo "No version file found, using fallback version: ${version}"
+                            }
+                        }
+                        env.VERSION = version ?: 'latest'
+                        env.LG = lg
+                        echo "Final version to use: ${env.VERSION}"
 
 
 //                        use credentials 097d9c91-53ff-4068-8a37-9b5a3cd7485d get username and password, pass them to deploy.sh as parameters.
@@ -154,11 +181,20 @@ def call(Map config = [:]) {
                         // 3️⃣ 定义 charts_dir
                         def charts_dir = "${env.WORKSPACE}/devops-learn/charts"
 
+                        def heml_dir = "springboot-api"
+
+                        // 如果 env.LG = "java"，则使用 java8 的 helm chart
+                        if (env.LG == "java") {
+                            heml_dir = "springboot-api"
+                        }  else {
+                            heml_dir = "generic-api"
+                        }
+
                         // 4️⃣ 验证目录（非常重要）
                         sh """
                             echo "==== 检查 Helm charts ===="
                             ls -al ${charts_dir}
-                            ls -al ${charts_dir}/springboot-api
+                            ls -al ${charts_dir}/${heml_dir}
                         """
 
                         // 5️⃣ 准备 deploy 脚本（来自 shared library）
@@ -167,7 +203,7 @@ def call(Map config = [:]) {
                         sh 'chmod +x deploy_helm.sh'
 
                         // 6️⃣ 变量定义
-                        def chartPath = "${charts_dir}/springboot-api"
+                        def chartPath = "${charts_dir}/${heml_dir}"
                         def host = "${params.api_name}.ydphoto.com"
                         def releaseName = "${params.api_name}"
                         def version = "${env.VERSION}"
