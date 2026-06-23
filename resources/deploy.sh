@@ -94,11 +94,12 @@ else
 fi
 
 # 获取项目的版本
-version=$(grep -oP '(?<=<version>)[^<]+' "${code_dir}/pom.xml" | head -1)
-if [ -n "$version" ]; then
-    echo "项目版本: $version"
-fi
+#version=$(grep -oP '(?<=<version>)[^<]+' "${code_dir}/pom.xml" | head -1)
+#if [ -n "$version" ]; then
+#    echo "项目版本: $version"
+#fi
 
+version="latest"
 
 # 检查Docker是否运行
 if ! docker info > /dev/null 2>&1; then
