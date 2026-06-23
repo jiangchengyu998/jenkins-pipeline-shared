@@ -1,21 +1,23 @@
 #!/bin/bash
 
-set -e  # 遇到错误立即退出
+set -euo pipefail
 
 # 参数检查
 if [ $# -lt 2 ]; then
-    echo "用法: $0 <代码目录> <API端口> [环境变量JSON] [项目名]"
-    echo "示例: $0 /path/to/code 8080 '{\"DB_HOST\":\"localhost\"}' my-project"
+    echo "用法: $0 <代码目录> <API端口> [环境变量JSON] [项目名] [仓库用户名] [仓库密码] [镜像版本]"
+    echo "示例: $0 /path/to/code 8080 '{\"DB_HOST\":\"localhost\"}' my-project '' '' 1.0.0"
     exit 1
 fi
 
 code_dir=$1
 api_port=$2
-envs=$3
-project_name=$4
+envs=${3:-}
+project_name=${4:-}
 
-harbor_username=$5
-harbor_password=$6
+harbor_username=${5:-}
+harbor_password=${6:-}
+version=${7:-latest}
+registry=${DOCKER_REGISTRY:-192.168.50.18:5000}
 
 # 验证代码目录是否存在
 if [ ! -d "$code_dir" ]; then
@@ -30,6 +32,21 @@ fi
 
 # 清理项目名，只保留字母数字和连字符
 project_name=$(echo "$project_name" | tr -cd '[:alnum:]-_' | tr '[:upper:]' '[:lower:]')
+version=$(echo "$version" | tr -cd '[:alnum:]_.-' | cut -c 1-128)
+
+if [ -z "$project_name" ]; then
+    echo "错误: 项目名为空"
+    exit 1
+fi
+
+if [ -z "$version" ]; then
+    version="latest"
+fi
+
+if ! [[ "$api_port" =~ ^[0-9]{1,5}$ ]] || [ "$api_port" -lt 1 ] || [ "$api_port" -gt 65535 ]; then
+    echo "错误: API端口无效: $api_port"
+    exit 1
+fi
 
 # 设置日志目录
 log_dir="/var/log/${project_name}"
@@ -39,6 +56,8 @@ echo "项目名称: $project_name"
 echo "代码目录: $code_dir"
 echo "API端口: $api_port"
 echo "日志目录: $log_dir"
+echo "镜像版本: $version"
+echo "镜像仓库: $registry"
 
 # 检测项目语言类型
 detect_language() {
@@ -76,12 +95,24 @@ if [ ! -f "${code_dir}/Dockerfile" ]; then
             cp ./Dockerfile_java8 "${code_dir}/Dockerfile"
             ;;
         nodejs)
+            if [ ! -f ./Dockerfile_nodejs ]; then
+                echo "错误: 未找到Dockerfile_nodejs模板"
+                exit 1
+            fi
             cp ./Dockerfile_nodejs "${code_dir}/Dockerfile"
             ;;
         python)
+            if [ ! -f ./Dockerfile_python ]; then
+                echo "错误: 未找到Dockerfile_python模板"
+                exit 1
+            fi
             cp ./Dockerfile_python "${code_dir}/Dockerfile"
             ;;
         golang)
+            if [ ! -f ./Dockerfile_golang ]; then
+                echo "错误: 未找到Dockerfile_golang模板"
+                exit 1
+            fi
             cp ./Dockerfile_golang "${code_dir}/Dockerfile"
             ;;
         *)
@@ -92,14 +123,6 @@ if [ ! -f "${code_dir}/Dockerfile" ]; then
 else
     echo "使用项目中的Dockerfile"
 fi
-
-# 获取项目的版本
-#version=$(grep -oP '(?<=<version>)[^<]+' "${code_dir}/pom.xml" | head -1)
-#if [ -n "$version" ]; then
-#    echo "项目版本: $version"
-#fi
-
-version="latest"
 
 # 检查Docker是否运行
 if ! docker info > /dev/null 2>&1; then
@@ -120,14 +143,13 @@ if [ "$language" = "nodejs" ]; then
                 while IFS= read -r line; do
                     if [ -n "$line" ]; then
                         if [[ $line == NEXT_PUBLIC* ]]; then
-                            echo "  环境变量: $line"
-                            echo "  环境变量1: ${line%=*}"
+                            echo "  构建环境变量: ${line%=*}"
                             # 只取=前面的一段
-                            dockerfile_line=$(grep -n "ENV ${line%=*}" "${code_dir}/Dockerfile" | cut -d: -f1)
-                            echo "dockerfile_line : $dockerfile_line"
+                            dockerfile_line=$(grep -n -F "ENV ${line%=*}" "${code_dir}/Dockerfile" | head -1 | cut -d: -f1 || true)
                             # 将 $line 的 = 换为空格
                             if [ -n "$dockerfile_line" ]; then
-                                sed -i "${dockerfile_line}s/^.*$/ENV ${line//=/ }/" "${code_dir}/Dockerfile"
+                                replacement=$(printf 'ENV %s' "${line/=/ }" | sed -e 's/[&|]/\\&/g')
+                                sed -i "${dockerfile_line}s|^.*$|${replacement}|" "${code_dir}/Dockerfile"
                             fi
                         fi
                     fi
@@ -140,39 +162,27 @@ if [ "$language" = "nodejs" ]; then
 fi
 
 echo "  Dockerfile: ${code_dir}/Dockerfile"
-cat "${code_dir}/Dockerfile"
 
 docker build -t "${project_name}" \
     --build-arg SERVER_PORT="${api_port}" \
+    --build-arg VERSION="${version}" \
     --label "project=${project_name}" \
     --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
     "${code_dir}"
 
-
-if [ $? -ne 0 ]; then
-    echo "错误: 镜像构建失败: ${project_name}"
-    exit 1
-fi
 echo "镜像构建完成: ${project_name}"
 
-# 登录192.168.101.75:8089 仓库
-#echo "登录Docker仓库... harbor_username: ${harbor_username}, harbor_password: ${harbor_password}"
-#docker login 192.168.101.75:8089 -u "${harbor_username}" -p "${harbor_password}"
-#if [ $? -ne 0 ]; then
-#    echo "错误: Docker登录失败"
-#    exit 1
-#fi
+if [ "${DOCKER_REGISTRY_LOGIN:-false}" = "true" ]; then
+    if [ -z "$harbor_username" ] || [ -z "$harbor_password" ]; then
+        echo "错误: DOCKER_REGISTRY_LOGIN=true 时必须提供仓库用户名和密码"
+        exit 1
+    fi
+    echo "登录Docker仓库: ${registry}"
+    printf '%s' "$harbor_password" | docker login "$registry" -u "$harbor_username" --password-stdin
+fi
 
 # 给镜像打标签
-image_tag="192.168.50.18:5000/${project_name}:$version"
+image_tag="${registry}/${project_name}:$version"
 docker tag "${project_name}" "${image_tag}"
-if [ $? -ne 0 ]; then
-    echo "错误: 镜像打标签失败"
-    exit 1
-fi
 echo "镜像打标签完成: ${image_tag}"
 docker push "${image_tag}"
-if [ $? -ne 0 ]; then
-    echo "错误: 镜像推送失败"
-    exit 1
-fi

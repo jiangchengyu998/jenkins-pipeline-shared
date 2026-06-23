@@ -1,10 +1,14 @@
-// vars/deploy_api_to_k3s.groovy
+// vars/deploy_api_to_k3s_cd.groovy
+import groovy.json.JsonOutput
+
 def call(Map config = [:]) {
     pipeline {
-        agent { label config.exe_node ?: 'w-ubuntu'}
+        agent { label config.exe_node ?: 'w-ubuntu' }
         options {
-            // 每一行日志前加上时间戳
             timestamps()
+            skipDefaultCheckout(true)
+            disableConcurrentBuilds()
+            timeout(time: config.timeoutMinutes ?: 30, unit: 'MINUTES')
         }
         environment {
             http_proxy  = ''
@@ -13,86 +17,87 @@ def call(Map config = [:]) {
             HTTPS_PROXY = ''
         }
         parameters {
-            string(name: 'GIT_URL', defaultValue: config.gitUrl ?: '', description: 'Git repository URL')
             string(name: 'API_PORT', defaultValue: config.apiPort ?: '3000', description: 'API port number')
             string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'Execution node')
-            string(name: 'branch', defaultValue: config.branch ?: 'main', description: 'Git branch')
-            string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables')
             string(name: 'api_id', defaultValue: config.api_id ?: '', description: 'API ID')
-            string(name: 'gitToken', defaultValue: config.gitToken ?: '', description: 'Git gitToken for authentication')
-            string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'api_name')
+            string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'API name / Helm release name')
             string(name: 'CALL_BACK_HOST', defaultValue: config.call_back_host ?: '', description: '构建完成后的回调地址')
-            string(name: 'TAG', defaultValue: config.tag ?: '', description: 'Tag')
+            string(name: 'TAG', defaultValue: config.tag ?: '', description: 'Image tag to deploy')
+            string(name: 'HELM_GIT_URL', defaultValue: config.helmGitUrl ?: 'git@github.com:jiangchengyu998/devops-learn.git', description: 'Helm charts repository URL')
+            string(name: 'HELM_GIT_BRANCH', defaultValue: config.helmGitBranch ?: 'main', description: 'Helm charts repository branch')
+            string(name: 'HELM_GIT_CREDENTIALS_ID', defaultValue: config.helmGitCredentialsId ?: '', description: 'Jenkins credentials ID for Helm repository')
+            string(name: 'HELM_ENV', defaultValue: config.helmEnv ?: 'dev', description: 'Helm environment value')
+            string(name: 'HELM_HOST_SUFFIX', defaultValue: config.helmHostSuffix ?: 'ydphoto.com', description: 'Ingress host suffix')
+            string(name: 'HELM_CHART', defaultValue: config.helmChart ?: 'springboot-api', description: 'Helm chart name')
+            string(name: 'HELM_NAMESPACE', defaultValue: config.helmNamespace ?: 'default', description: 'Kubernetes namespace')
         }
 
         stages {
             stage('Prepare Workspace') {
                 steps {
                     script {
-                        echo "Cleaning workspace..."
+                        validateRequiredParams()
+                        echo 'Cleaning workspace...'
                         deleteDir()
-                        echo "Workspace cleaned successfully"
-                        sh "ls -la"
+                        echo 'Workspace cleaned successfully'
                     }
                 }
             }
 
-
-            // run on node with label 'w-ubuntu-k3s' to deploy to k3s cluster
             stage('CD') {
                 steps {
                     script {
-                        // 1️⃣ checkout 应用代码（如果需要）
-                        // 2️⃣ checkout Helm 仓库
-                        dir('devops-learn') {
-                            git(
-                                    url: 'git@github.com:jiangchengyu998/devops-learn.git',
-                                    branch: 'main'
-//                                    credentialsId: 'git-ssh-key'   // 你 Jenkins 配的凭证
-                            )
-                        }
+                        checkoutHelmRepository()
 
-                        // 3️⃣ 定义 charts_dir
-                        def charts_dir = "${env.WORKSPACE}/devops-learn/charts"
+                        def chartsDir = "${env.WORKSPACE}/devops-learn/charts"
+                        def chartName = params.HELM_CHART.trim()
+                        def chartPath = "${chartsDir}/${chartName}"
 
-                        // 4️⃣ 验证目录（非常重要）
-                        sh """
-                            echo "==== 检查 Helm charts ===="
-                            ls -al ${charts_dir}
-                            ls -al ${charts_dir}/springboot-api
-                        """
+                        sh(
+                                label: 'Validate Helm chart path',
+                                script: """
+                                    set -e
+                                    test -d ${shellQuote(chartsDir)}
+                                    test -f ${shellQuote(chartPath + '/values.yaml')}
+                                """.stripIndent()
+                        )
 
-                        // 5️⃣ 准备 deploy 脚本（来自 shared library）
-                        def scriptContent = libraryResource('deploy_helm.sh')
-                        writeFile file: 'deploy_helm.sh', text: scriptContent
+                        writeFile file: 'deploy_helm.sh', text: libraryResource('deploy_helm.sh')
                         sh 'chmod +x deploy_helm.sh'
 
-                        // 6️⃣ 变量定义
-                        def chartPath = "${charts_dir}/springboot-api"
-                        def host = "${params.api_name}.ydphoto.com"
-                        def releaseName = "${params.api_name}"
-                        def version = "${params.TAG}"
-                        def envName = "dev"
+                        def host = buildHost(params.api_name, params.HELM_HOST_SUFFIX)
+                        def releaseName = params.api_name.trim()
+                        def version = sanitizeDockerTag(params.TAG)
+                        def envName = params.HELM_ENV.trim()
+                        def namespace = params.HELM_NAMESPACE.trim()
 
-                        // 7️⃣ 打印信息
                         echo """
                             ===== Helm Deploy =====
                             chartPath: ${chartPath}
                             host: ${host}
                             releaseName: ${releaseName}
+                            version: ${version}
+                            environment: ${envName}
+                            namespace: ${namespace}
                             =======================
-                            """
+                        """.stripIndent()
 
-                        // 8️⃣ 执行部署
-                        sh """
-                                set -e
-                                ./deploy_helm.sh \
-                                    ${chartPath} \
-                                    ${host} \
-                                    ${releaseName} \
-                                    ${version} \
-                                    ${envName}
-                            """
+                        withEnv([
+                                "CHART_PATH=${chartPath}",
+                                "HELM_HOST=${host}",
+                                "RELEASE_NAME=${releaseName}",
+                                "IMAGE_VERSION=${version}",
+                                "HELM_ENV_NAME=${envName}",
+                                "HELM_NAMESPACE_NAME=${namespace}"
+                        ]) {
+                            sh(
+                                    label: 'Deploy Helm release',
+                                    script: '''
+                                        set -e
+                                        ./deploy_helm.sh "$CHART_PATH" "$HELM_HOST" "$RELEASE_NAME" "$IMAGE_VERSION" "$HELM_ENV_NAME" "$HELM_NAMESPACE_NAME"
+                                    '''.stripIndent()
+                            )
+                        }
                     }
                 }
             }
@@ -100,65 +105,134 @@ def call(Map config = [:]) {
 
         post {
             success {
-                echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
+                echo "Deployment api ${params.api_id} completed successfully with tag ${params.TAG}"
                 script {
-                    echo "准备发送 RUNNING 状态的 webhook 回调"
-//                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    echo '准备发送 RUNNING 状态的 webhook 回调'
+                    sendWebhookWithRetry(params.api_id, 'RUNNING', env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
             failure {
-                echo "Deployment failed"
+                echo 'Deployment failed'
                 script {
-                    echo "准备发送 RUNNING 状态的 webhook 回调"
-
-//                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    echo '准备发送 ERROR 状态的 webhook 回调'
+                    sendWebhookWithRetry(params.api_id, 'ERROR', env.BUILD_ID, 3, params.CALL_BACK_HOST)
                 }
             }
         }
     }
 }
 
-// vars/webhook_utils.groovy
+def validateRequiredParams() {
+    def required = [
+            api_name: params.api_name,
+            TAG: params.TAG,
+            HELM_GIT_URL: params.HELM_GIT_URL,
+            HELM_GIT_BRANCH: params.HELM_GIT_BRANCH,
+            HELM_ENV: params.HELM_ENV,
+            HELM_HOST_SUFFIX: params.HELM_HOST_SUFFIX,
+            HELM_CHART: params.HELM_CHART,
+            HELM_NAMESPACE: params.HELM_NAMESPACE
+    ]
+
+    def missing = required.findAll { !it.value?.trim() }.keySet()
+    if (missing) {
+        error "Missing required parameters: ${missing.join(', ')}"
+    }
+
+    if (params.API_PORT?.trim() && (!(params.API_PORT ==~ /^[0-9]{1,5}$/) || params.API_PORT.toInteger() < 1 || params.API_PORT.toInteger() > 65535)) {
+        error "Invalid API_PORT: ${params.API_PORT}"
+    }
+
+    validateKubernetesName(params.api_name, 'api_name')
+    validateKubernetesName(params.HELM_NAMESPACE, 'HELM_NAMESPACE')
+}
+
+def checkoutHelmRepository() {
+    dir('devops-learn') {
+        if (params.HELM_GIT_CREDENTIALS_ID?.trim()) {
+            git(
+                    url: params.HELM_GIT_URL,
+                    branch: params.HELM_GIT_BRANCH,
+                    credentialsId: params.HELM_GIT_CREDENTIALS_ID.trim()
+            )
+        } else {
+            git(
+                    url: params.HELM_GIT_URL,
+                    branch: params.HELM_GIT_BRANCH
+            )
+        }
+    }
+}
+
+def buildHost(String apiName, String suffix) {
+    def cleanSuffix = suffix.trim().replaceFirst(/^\.+/, '')
+    return "${apiName.trim()}.${cleanSuffix}"
+}
+
+def validateKubernetesName(String value, String label) {
+    def name = value?.trim()
+    if (!(name ==~ /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/)) {
+        error "${label} must be a valid Kubernetes DNS label: ${value}"
+    }
+}
+
+def sanitizeDockerTag(String value) {
+    def tag = (value ?: '').trim().replaceAll(/[^A-Za-z0-9_.-]/, '-')
+    if (!tag) {
+        error 'TAG is empty after sanitizing'
+    }
+    return tag.take(128)
+}
+
+def shellQuote(String value) {
+    return "'" + (value ?: '').replace("'", "'\"'\"'") + "'"
+}
+
 def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost) {
+    if (!apiId?.trim() || !callBackHost?.trim()) {
+        echo 'Webhook skipped: api_id or CALL_BACK_HOST is empty'
+        return false
+    }
+
     def retryDelay = 5
+    def payloadFile = "webhook-${status.toLowerCase()}-${jobId}.json"
+    writeFile file: payloadFile, text: JsonOutput.toJson([apiStatus: status, jobId: jobId])
+    def webhookUrl = "${callBackHost.replaceAll(/\/+$/, '')}/api/apis/${apiId}/webhook"
 
     for (int i = 0; i < maxRetries; i++) {
         try {
             echo "Sending ${status} webhook - Attempt ${i + 1}/${maxRetries}"
 
             def result = sh(
-                    script: """curl --location '${callBackHost}/api/apis/${apiId}/webhook' \
-                    --header 'Content-Type: application/json' \
-                    --data '{
-                        \"apiStatus\":\"${status}\",
-                        \"jobId\": \"${jobId}\"
-                    }' \
-                    --insecure \
-                    --ssl-no-revoke \
-                    --connect-timeout 10 \
-                    --max-time 30 \
-                    --silent \
+                    script: """curl --location ${shellQuote(webhookUrl)} \\
+                    --header 'Content-Type: application/json' \\
+                    --data @${shellQuote(payloadFile)} \\
+                    --insecure \\
+                    --ssl-no-revoke \\
+                    --connect-timeout 10 \\
+                    --max-time 30 \\
+                    --silent \\
                     --show-error""",
                     returnStatus: true
             )
 
             if (result == 0) {
-                echo "✅ ${status} webhook sent successfully"
+                echo "${status} webhook sent successfully"
                 return true
-            } else {
-                echo "❌ Webhook attempt ${i + 1} failed with exit code: ${result}"
-                if (i < maxRetries - 1) {
-                    sleep(retryDelay)
-                }
+            }
+
+            echo "Webhook attempt ${i + 1} failed with exit code: ${result}"
+            if (i < maxRetries - 1) {
+                sleep(retryDelay)
             }
         } catch (Exception e) {
-            echo "❌ Webhook attempt ${i + 1} threw exception: ${e.message}"
+            echo "Webhook attempt ${i + 1} threw exception: ${e.message}"
             if (i < maxRetries - 1) {
                 sleep(retryDelay)
             }
         }
     }
 
-    echo "⚠️ Failed to send ${status} webhook after ${maxRetries} attempts"
+    echo "Failed to send ${status} webhook after ${maxRetries} attempts"
     return false
 }
