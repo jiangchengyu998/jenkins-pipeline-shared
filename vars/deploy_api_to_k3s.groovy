@@ -258,7 +258,7 @@ def checkoutApplicationCode() {
 def detectProjectInfo(String codeDir) {
     def quotedDir = shellQuote(codeDir)
     def version = null
-    def language = 'unknown'
+    def language = 'other'
 
     if (fileExists("${codeDir}/pom.xml")) {
         version = sh(
@@ -272,30 +272,6 @@ def detectProjectInfo(String codeDir) {
                 returnStdout: true
         ).trim()
         language = 'java'
-    } else if (fileExists("${codeDir}/package.json")) {
-        version = sh(
-                script: "grep -m1 '\"version\"' ${shellQuote(codeDir + '/package.json')} | sed 's/.*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/'",
-                returnStdout: true
-        ).trim()
-        language = 'nodejs'
-    } else if (fileExists("${codeDir}/setup.py")) {
-        version = sh(
-                script: "grep -E \"version\\s*=\\s*['\\\"]\" ${shellQuote(codeDir + '/setup.py')} | head -1 | sed \"s/.*version\\s*=\\s*['\\\"]\\([^'\\\"]*\\)['\\\"].*/\\1/\"",
-                returnStdout: true
-        ).trim()
-        language = 'python'
-    } else if (fileExists("${codeDir}/pyproject.toml")) {
-        version = sh(
-                script: "grep -E '^version\\s*=' ${shellQuote(codeDir + '/pyproject.toml')} | head -1 | sed \"s/.*=\\s*['\\\"]\\([^'\\\"]*\\)['\\\"].*/\\1/\"",
-                returnStdout: true
-        ).trim()
-        language = 'python'
-    } else if (fileExists("${codeDir}/go.mod")) {
-        version = sh(
-                script: "cd ${quotedDir} && git describe --tags --always --dirty",
-                returnStdout: true
-        ).trim()
-        language = 'golang'
     } else {
         version = sh(
                 script: "cd ${quotedDir} && git describe --tags --always --dirty || true",

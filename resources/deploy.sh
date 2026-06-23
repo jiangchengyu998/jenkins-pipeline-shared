@@ -59,26 +59,16 @@ echo "日志目录: $log_dir"
 echo "镜像版本: $version"
 echo "镜像仓库: $registry"
 
-# 检测项目语言类型
+# 检测项目语言类型：当前只区分 Java 和其他
 detect_language() {
     local dir=$1
 
-    # 检查是否是Java项目
     if [ -f "$dir/pom.xml" ]; then
         echo "java"
     elif [ -f "$dir/build.gradle" ] || [ -f "$dir/build.gradle.kts" ]; then
         echo "java"
-    # 检查是否是Node.js项目
-    elif [ -f "$dir/package.json" ]; then
-        echo "nodejs"
-    # 检查是否是Python项目
-    elif [ -f "$dir/requirements.txt" ] || [ -f "$dir/setup.py" ] || [ -f "$dir/pyproject.toml" ]; then
-        echo "python"
-    # 检查是否是Go项目
-    elif [ -f "$dir/go.mod" ]; then
-        echo "golang"
     else
-        echo "unknown"
+        echo "other"
     fi
 }
 
@@ -88,38 +78,13 @@ echo "检测到项目类型: $language"
 
 # 查看${code_dir}中是否有Dockerfile，如果没有，则根据项目语言类型进行选择Dockerfile
 if [ ! -f "${code_dir}/Dockerfile" ]; then
-    echo "未找到Dockerfile，根据项目语言类型使用模板Dockerfile"
-    case $language in
-        java)
-            echo "使用Dockerfile.java模板"
-            cp ./Dockerfile_java8 "${code_dir}/Dockerfile"
-            ;;
-        nodejs)
-            if [ ! -f ./Dockerfile_nodejs ]; then
-                echo "错误: 未找到Dockerfile_nodejs模板"
-                exit 1
-            fi
-            cp ./Dockerfile_nodejs "${code_dir}/Dockerfile"
-            ;;
-        python)
-            if [ ! -f ./Dockerfile_python ]; then
-                echo "错误: 未找到Dockerfile_python模板"
-                exit 1
-            fi
-            cp ./Dockerfile_python "${code_dir}/Dockerfile"
-            ;;
-        golang)
-            if [ ! -f ./Dockerfile_golang ]; then
-                echo "错误: 未找到Dockerfile_golang模板"
-                exit 1
-            fi
-            cp ./Dockerfile_golang "${code_dir}/Dockerfile"
-            ;;
-        *)
-            echo "错误: 不支持的语言类型: $language"
-            exit 1
-            ;;
-    esac
+    if [ "$language" = "java" ]; then
+        echo "未找到Dockerfile，Java项目使用Dockerfile_java8模板"
+        cp ./Dockerfile_java8 "${code_dir}/Dockerfile"
+    else
+        echo "错误: 非Java项目必须在项目中提供Dockerfile"
+        exit 1
+    fi
 else
     echo "使用项目中的Dockerfile"
 fi
@@ -130,37 +95,7 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# 构建镜像
 echo "开始构建Docker镜像..."
-# 如果是nextjs项目，解析环境变量中是否有NEXT_PUBLIC开头的，如果有则替换Dockerfile中的NEXT_PUBLIC开头的配置
-if [ "$language" = "nodejs" ]; then
-    if [ -n "$envs" ] && [ "$envs" != "null" ]; then
-        echo "解析环境变量..."
-        # 使用jq解析JSON环境变量
-        if command -v jq > /dev/null 2>&1; then
-            env_vars=$(echo "$envs" | jq -r 'to_entries | map("\(.key)=\(.value)") | .[]' 2>/dev/null || echo "")
-            if [ -n "$env_vars" ]; then
-                while IFS= read -r line; do
-                    if [ -n "$line" ]; then
-                        if [[ $line == NEXT_PUBLIC* ]]; then
-                            echo "  构建环境变量: ${line%=*}"
-                            # 只取=前面的一段
-                            dockerfile_line=$(grep -n -F "ENV ${line%=*}" "${code_dir}/Dockerfile" | head -1 | cut -d: -f1 || true)
-                            # 将 $line 的 = 换为空格
-                            if [ -n "$dockerfile_line" ]; then
-                                replacement=$(printf 'ENV %s' "${line/=/ }" | sed -e 's/[&|]/\\&/g')
-                                sed -i "${dockerfile_line}s|^.*$|${replacement}|" "${code_dir}/Dockerfile"
-                            fi
-                        fi
-                    fi
-                done <<< "$env_vars"
-            fi
-        else
-            echo "警告: 未找到jq命令，无法解析JSON环境变量"
-        fi
-    fi
-fi
-
 echo "  Dockerfile: ${code_dir}/Dockerfile"
 
 docker build -t "${project_name}" \
