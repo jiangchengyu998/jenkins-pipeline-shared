@@ -103,11 +103,11 @@ def call(Map config = [:]) {
                             }
                         }
 
-                        def dockerStatus = sh(
-                                script: "docker images --format 'table {{.Repository}}\\t{{.Tag}}\\t{{.CreatedSince}}' | head -20",
-                                returnStdout: true
-                        ).trim()
-                        echo "Recent Docker images:\n${dockerStatus}"
+//                        def dockerStatus = sh(
+//                                script: "docker images --format 'table {{.Repository}}\\t{{.Tag}}\\t{{.CreatedSince}}' | head -20",
+//                                returnStdout: true
+//                        ).trim()
+//                        echo "Recent Docker images:\n${dockerStatus}"
                     }
                 }
             }
