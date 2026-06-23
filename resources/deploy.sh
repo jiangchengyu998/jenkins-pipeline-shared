@@ -3,20 +3,19 @@
 set -euo pipefail
 
 # 参数检查
-if [ $# -lt 2 ]; then
-    echo "用法: $0 <代码目录> <API端口> [环境变量JSON] [项目名] [仓库用户名] [仓库密码] [镜像版本]"
-    echo "示例: $0 /path/to/code 8080 '{\"DB_HOST\":\"localhost\"}' my-project '' '' 1.0.0"
+if [ $# -lt 1 ]; then
+    echo "用法: $0 <代码目录> [环境变量JSON] [项目名] [仓库用户名] [仓库密码] [镜像版本]"
+    echo "示例: $0 /path/to/code '{\"DB_HOST\":\"localhost\"}' my-project '' '' 1.0.0"
     exit 1
 fi
 
 code_dir=$1
-api_port=$2
-envs=${3:-}
-project_name=${4:-}
+envs=${2:-}
+project_name=${3:-}
 
-harbor_username=${5:-}
-harbor_password=${6:-}
-version=${7:-latest}
+harbor_username=${4:-}
+harbor_password=${5:-}
+version=${6:-latest}
 registry=${DOCKER_REGISTRY:-192.168.50.18:5000}
 
 # 验证代码目录是否存在
@@ -43,18 +42,12 @@ if [ -z "$version" ]; then
     version="latest"
 fi
 
-if ! [[ "$api_port" =~ ^[0-9]{1,5}$ ]] || [ "$api_port" -lt 1 ] || [ "$api_port" -gt 65535 ]; then
-    echo "错误: API端口无效: $api_port"
-    exit 1
-fi
-
 # 设置日志目录
 log_dir="/var/log/${project_name}"
 mkdir -p "$log_dir"
 
 echo "项目名称: $project_name"
 echo "代码目录: $code_dir"
-echo "API端口: $api_port"
 echo "日志目录: $log_dir"
 echo "镜像版本: $version"
 echo "镜像仓库: $registry"
@@ -99,7 +92,6 @@ echo "开始构建Docker镜像..."
 echo "  Dockerfile: ${code_dir}/Dockerfile"
 
 docker build -t "${project_name}" \
-    --build-arg SERVER_PORT="${api_port}" \
     --build-arg VERSION="${version}" \
     --label "project=${project_name}" \
     --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \

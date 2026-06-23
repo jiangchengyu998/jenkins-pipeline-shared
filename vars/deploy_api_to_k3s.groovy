@@ -18,7 +18,6 @@ def call(Map config = [:]) {
         }
         parameters {
             string(name: 'GIT_URL', defaultValue: config.gitUrl ?: '', description: 'Git repository URL')
-            string(name: 'API_PORT', defaultValue: config.apiPort ?: '3000', description: 'API port number')
             string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'Execution node')
             string(name: 'branch', defaultValue: config.branch ?: 'main', description: 'Git branch')
             string(name: 'envs', defaultValue: config.envs ?: '', description: 'Environment variables as JSON')
@@ -72,7 +71,6 @@ def call(Map config = [:]) {
 
                         echo "Starting image build..."
                         echo "Code directory: ${codeDir}"
-                        echo "API port: ${params.API_PORT}"
 
                         writeFile file: 'deploy.sh', text: libraryResource('deploy.sh')
                         writeFile file: 'Dockerfile_java8', text: libraryResource('Dockerfile_java8')
@@ -88,7 +86,6 @@ def call(Map config = [:]) {
                         withCredentials([usernamePassword(credentialsId: '097d9c91-53ff-4068-8a37-9b5a3cd7485d', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                             withEnv([
                                     "CODE_DIR=${codeDir}",
-                                    "API_PORT_VALUE=${params.API_PORT}",
                                     "APP_ENVS=${params.envs ?: ''}",
                                     "API_NAME=${params.api_name}",
                                     "IMAGE_VERSION=${env.VERSION}"
@@ -97,17 +94,15 @@ def call(Map config = [:]) {
                                         label: 'Build and push Docker image',
                                         script: '''
                                             set -e
-                                            ./deploy.sh "$CODE_DIR" "$API_PORT_VALUE" "$APP_ENVS" "$API_NAME" "$USERNAME" "$PASSWORD" "$IMAGE_VERSION"
+                                            ./deploy.sh "$CODE_DIR" "$APP_ENVS" "$API_NAME" "$USERNAME" "$PASSWORD" "$IMAGE_VERSION"
                                         '''.stripIndent()
                                 )
                             }
                         }
 
-//                        def dockerStatus = sh(
-//                                script: "docker images --format 'table {{.Repository}}\\t{{.Tag}}\\t{{.CreatedSince}}' | head -20",
-//                                returnStdout: true
-//                        ).trim()
-//                        echo "Recent Docker images:\n${dockerStatus}"
+                        env.CONTAINER_PORT = detectExposedPort("${codeDir}/Dockerfile")
+                        echo "Detected container EXPOSE port: ${env.CONTAINER_PORT}"
+
                     }
                 }
             }
@@ -152,6 +147,7 @@ def call(Map config = [:]) {
                             releaseName: ${releaseName}
                             version: ${env.VERSION}
                             environment: ${envName}
+                            containerPort: ${env.CONTAINER_PORT}
                             =======================
                         """.stripIndent()
 
@@ -160,7 +156,8 @@ def call(Map config = [:]) {
                                 "HELM_HOST=${host}",
                                 "RELEASE_NAME=${releaseName}",
                                 "IMAGE_VERSION=${env.VERSION}",
-                                "HELM_ENV_NAME=${envName}"
+                                "HELM_ENV_NAME=${envName}",
+                                "HELM_CONTAINER_PORT=${env.CONTAINER_PORT}"
                         ]) {
                             sh(
                                     label: 'Deploy Helm release',
@@ -177,7 +174,7 @@ def call(Map config = [:]) {
 
         post {
             success {
-                echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
+                echo "Deployment api ${params.api_id} completed successfully on container port ${env.CONTAINER_PORT}"
                 script {
                     echo '准备发送 RUNNING 状态的 webhook 回调'
                     sendWebhookWithRetry(params.api_id, 'RUNNING', env.BUILD_ID, 3, params.CALL_BACK_HOST)
@@ -198,7 +195,6 @@ def validateRequiredParams() {
     def required = [
             GIT_URL: params.GIT_URL,
             branch: params.branch,
-            API_PORT: params.API_PORT,
             api_name: params.api_name,
             HELM_GIT_URL: params.HELM_GIT_URL,
             HELM_GIT_BRANCH: params.HELM_GIT_BRANCH,
@@ -209,10 +205,6 @@ def validateRequiredParams() {
     def missing = required.findAll { !it.value?.trim() }.keySet()
     if (missing) {
         error "Missing required parameters: ${missing.join(', ')}"
-    }
-
-    if (!(params.API_PORT ==~ /^[0-9]{1,5}$/) || params.API_PORT.toInteger() < 1 || params.API_PORT.toInteger() > 65535) {
-        error "Invalid API_PORT: ${params.API_PORT}"
     }
 
     validateKubernetesName(params.api_name, 'api_name')
@@ -281,6 +273,104 @@ def detectProjectInfo(String codeDir) {
 
     version = sanitizeDockerTag(version ?: 'latest')
     return [version: version, language: language]
+}
+
+def detectExposedPort(String dockerfilePath) {
+    if (!fileExists(dockerfilePath)) {
+        error "Dockerfile not found when detecting EXPOSE port: ${dockerfilePath}"
+    }
+
+    def variables = [:]
+
+    def logicalLines = []
+    def currentLine = ''
+    readFile(file: dockerfilePath).readLines().each { rawLine ->
+        def line = rawLine.replaceFirst(/\s+#.*$/, '').trim()
+        if (!line) {
+            return
+        }
+
+        if (line.endsWith('\\')) {
+            currentLine += line[0..-2].trim() + ' '
+            return
+        }
+
+        logicalLines << (currentLine + line).trim()
+        currentLine = ''
+    }
+    if (currentLine.trim()) {
+        logicalLines << currentLine.trim()
+    }
+
+    logicalLines.each { line ->
+        def argMatcher = line =~ /(?i)^ARG\s+([A-Za-z_][A-Za-z0-9_]*)(?:=(\S+))?$/
+        if (argMatcher.matches() && !variables[argMatcher[0][1]] && argMatcher[0][2]) {
+            variables[argMatcher[0][1]] = argMatcher[0][2]
+        }
+
+        def envMatcher = line =~ /(?i)^ENV\s+(.+)$/
+        if (envMatcher.matches()) {
+            envMatcher[0][1].split(/\s+/).each { entry ->
+                def keyValue = entry.split('=', 2)
+                if (keyValue.length == 2 && keyValue[0]) {
+                    variables[keyValue[0]] = resolveDockerfileValue(keyValue[1], variables)
+                }
+            }
+        }
+    }
+
+    def exposeLines = logicalLines.findAll { it ==~ /(?i)^EXPOSE\s+.+/ }
+    if (!exposeLines) {
+        error "Dockerfile must declare an EXPOSE port: ${dockerfilePath}"
+    }
+
+    def exposeValue = exposeLines.last().replaceFirst(/(?i)^EXPOSE\s+/, '').trim().tokenize().first()
+    exposeValue = exposeValue.replaceFirst(/(?i)\/(tcp|udp)$/, '').replaceAll(/^['"]|['"]$/, '')
+    def resolvedPort = resolveDockerfileValue(exposeValue, variables)
+    return validatePortValue(resolvedPort, "Dockerfile EXPOSE port (${exposeValue})")
+}
+
+def resolveDockerfileValue(String value, Map variables, Set resolving = [] as Set) {
+    def result = (value ?: '').trim().replaceAll(/^['"]|['"]$/, '')
+    def defaultMatcher = result =~ /^\$\{([A-Za-z_][A-Za-z0-9_]*):-([^}]+)\}$/
+    if (defaultMatcher.matches()) {
+        def name = defaultMatcher[0][1]
+        if (resolving.contains(name)) {
+            return defaultMatcher[0][2]
+        }
+        def resolved = variables[name] ?: defaultMatcher[0][2]
+        return resolveDockerfileValue(resolved, variables, resolving + name)
+    }
+
+    def bracedMatcher = result =~ /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/
+    if (bracedMatcher.matches()) {
+        def name = bracedMatcher[0][1]
+        if (resolving.contains(name)) {
+            return result
+        }
+        def resolved = variables[name]
+        return resolved ? resolveDockerfileValue(resolved, variables, resolving + name) : result
+    }
+
+    def plainMatcher = result =~ /^\$([A-Za-z_][A-Za-z0-9_]*)$/
+    if (plainMatcher.matches()) {
+        def name = plainMatcher[0][1]
+        if (resolving.contains(name)) {
+            return result
+        }
+        def resolved = variables[name]
+        return resolved ? resolveDockerfileValue(resolved, variables, resolving + name) : result
+    }
+
+    return result
+}
+
+def validatePortValue(String value, String label) {
+    def port = (value ?: '').trim()
+    if (!(port ==~ /^[0-9]{1,5}$/) || port.toInteger() < 1 || port.toInteger() > 65535) {
+        error "Invalid ${label}: ${value}"
+    }
+    return port
 }
 
 def repoNameFromGitUrl(String gitUrl) {

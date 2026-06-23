@@ -17,7 +17,6 @@ def call(Map config = [:]) {
             HTTPS_PROXY = ''
         }
         parameters {
-            string(name: 'API_PORT', defaultValue: config.apiPort ?: '3000', description: 'API port number')
             string(name: 'exe_node', defaultValue: config.exe_node ?: 'w-ubuntu', description: 'Execution node')
             string(name: 'api_id', defaultValue: config.api_id ?: '', description: 'API ID')
             string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'API name / Helm release name')
@@ -137,10 +136,6 @@ def validateRequiredParams() {
     def missing = required.findAll { !it.value?.trim() }.keySet()
     if (missing) {
         error "Missing required parameters: ${missing.join(', ')}"
-    }
-
-    if (params.API_PORT?.trim() && (!(params.API_PORT ==~ /^[0-9]{1,5}$/) || params.API_PORT.toInteger() < 1 || params.API_PORT.toInteger() > 65535)) {
-        error "Invalid API_PORT: ${params.API_PORT}"
     }
 
     validateKubernetesName(params.api_name, 'api_name')

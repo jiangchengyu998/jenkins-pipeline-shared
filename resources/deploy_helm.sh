@@ -31,11 +31,14 @@ usage() {
 说明:
   脚本会基于 chart 的 values.yaml 生成一个临时 values 文件，替换其中的占位符：
     HOSTNAME, API-NAME, TAG, ENVIRONMENT
+  如果设置了 HELM_CONTAINER_PORT，还会替换端口占位符：
+    API-PORT, API_PORT, CONTAINER-PORT, CONTAINER_PORT, SERVER-PORT, SERVER_PORT
   然后用 helm upgrade --install 进行部署，部署完成后删除临时文件。
 
 可选环境变量:
   KUBECONFIG       默认 /etc/rancher/k3s/k3s.yaml
   HELM_NAMESPACE  未传 namespace 参数时使用，默认 default
+  HELM_CONTAINER_PORT  容器 EXPOSE 端口，用于替换 values.yaml 中的端口占位符
   HELM_TIMEOUT    默认 180s
 EOF
 }
@@ -59,6 +62,14 @@ validate_dns_label() {
   fi
 }
 
+validate_port() {
+  value="$1"
+  label="$2"
+  if ! printf '%s' "$value" | grep -Eq '^[0-9]{1,5}$' || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
+    fail "${label} 必须是合法端口: ${value}" 2
+  fi
+}
+
 # deploy_helm <chart_path> <hostname> <api_name> <tag> <environment> [namespace]
 deploy_helm() {
   if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
@@ -71,6 +82,7 @@ deploy_helm() {
   tag="$4"
   environment="$5"
   namespace="${6:-${HELM_NAMESPACE:-default}}"
+  container_port="${HELM_CONTAINER_PORT:-}"
 
   [ -n "$chart_path" ] || fail "chart_path 不能为空" 2
   [ -n "$hostname" ] || fail "hostname 不能为空" 2
@@ -81,6 +93,9 @@ deploy_helm() {
 
   validate_dns_label "$api_name" "api_name"
   validate_dns_label "$namespace" "namespace"
+  if [ -n "$container_port" ]; then
+    validate_port "$container_port" "HELM_CONTAINER_PORT"
+  fi
 
   check_helm
   check_kubectl
@@ -94,7 +109,8 @@ deploy_helm() {
   fi
 
   tmpfile=$(mktemp /tmp/values.XXXXXX.yaml) || { echo "mktemp 失败" >&2; exit 4; }
-  trap 'rm -f "${tmpfile}"' EXIT HUP INT TERM
+  tmpfile_port=""
+  trap 'rm -f "${tmpfile}" "${tmpfile_port}"' EXIT HUP INT TERM
 
   h_escaped=$(escape_for_sed "${hostname}")
   ap_escaped=$(escape_for_sed "${api_name}")
@@ -107,7 +123,21 @@ deploy_helm() {
       -e "s|ENVIRONMENT|${env_escaped}|g" \
       "${chart_path}/values.yaml" > "${tmpfile}"
 
-  echo "正在部署 Helm release: release=${api_name} chart=${chart_path} namespace=${namespace}"
+  if [ -n "$container_port" ]; then
+    port_escaped=$(escape_for_sed "${container_port}")
+    tmpfile_port=$(mktemp /tmp/values-port.XXXXXX.yaml) || { echo "mktemp 失败" >&2; exit 4; }
+    sed -e "s|API-PORT|${port_escaped}|g" \
+        -e "s|API_PORT|${port_escaped}|g" \
+        -e "s|CONTAINER-PORT|${port_escaped}|g" \
+        -e "s|CONTAINER_PORT|${port_escaped}|g" \
+        -e "s|SERVER-PORT|${port_escaped}|g" \
+        -e "s|SERVER_PORT|${port_escaped}|g" \
+        "${tmpfile}" > "${tmpfile_port}"
+    mv "${tmpfile_port}" "${tmpfile}"
+    tmpfile_port=""
+  fi
+
+  echo "正在部署 Helm release: release=${api_name} chart=${chart_path} namespace=${namespace} containerPort=${container_port:-未设置}"
   helm upgrade --install "${api_name}" "${chart_path}" \
     -f "${tmpfile}" \
     --namespace "${namespace}" \
