@@ -54,6 +54,7 @@ deploy_api_to_k3s(
 | `gitToken` | 否 | HTTP(S) Git 仓库 token |
 | `gitCredentialsId` / `GIT_CREDENTIALS_ID` | 否 | Jenkins Git 凭据 ID，优先级高于 `gitToken` |
 | `call_back_host` / `CALL_BACK_HOST` | 否 | 构建结束后的 webhook 回调地址 |
+| `webhookSecret` / `WEBHOOK_SECRET` | 否 | Webhook 回调密钥；平台回调启用鉴权时必填，会通过 `x-webhook-secret` 请求头发送 |
 | `helmGitUrl` / `HELM_GIT_URL` | 是 | Helm charts 仓库地址 |
 | `helmGitBranch` / `HELM_GIT_BRANCH` | 是 | Helm charts 仓库分支 |
 | `helmEnv` / `HELM_ENV` | 是 | 替换 values 中的 `ENVIRONMENT` |

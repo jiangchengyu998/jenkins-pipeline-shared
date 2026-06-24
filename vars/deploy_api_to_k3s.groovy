@@ -26,6 +26,7 @@ def call(Map config = [:]) {
             string(name: 'GIT_CREDENTIALS_ID', defaultValue: config.gitCredentialsId ?: '', description: 'Jenkins Git credentials ID')
             string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'API name / Helm release name')
             string(name: 'CALL_BACK_HOST', defaultValue: config.call_back_host ?: '', description: '构建完成后的回调地址')
+            password(name: 'WEBHOOK_SECRET', defaultValue: config.webhookSecret ?: '', description: 'Webhook 回调密钥')
             string(name: 'HELM_GIT_URL', defaultValue: config.helmGitUrl ?: 'https://github.com/jiangchengyu998/devops-learn.git', description: 'Helm charts repository URL')
             string(name: 'HELM_GIT_BRANCH', defaultValue: config.helmGitBranch ?: 'main', description: 'Helm charts repository branch')
             string(name: 'HELM_ENV', defaultValue: config.helmEnv ?: 'dev', description: 'Helm environment value')
@@ -178,14 +179,14 @@ def call(Map config = [:]) {
                 echo "Deployment api ${params.api_id} completed successfully on container port ${env.CONTAINER_PORT}"
                 script {
                     echo '准备发送 RUNNING 状态的 webhook 回调'
-                    sendWebhookWithRetry(params.api_id, 'RUNNING', env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    sendWebhookWithRetry(params.api_id, 'RUNNING', env.BUILD_ID, 3, params.CALL_BACK_HOST, params.WEBHOOK_SECRET?.toString())
                 }
             }
             failure {
                 echo 'Deployment failed'
                 script {
                     echo '准备发送 ERROR 状态的 webhook 回调'
-                    sendWebhookWithRetry(params.api_id, 'ERROR', env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    sendWebhookWithRetry(params.api_id, 'ERROR', env.BUILD_ID, 3, params.CALL_BACK_HOST, params.WEBHOOK_SECRET?.toString())
                 }
             }
         }
@@ -408,9 +409,9 @@ def shellQuote(String value) {
     return "'" + (value ?: '').replace("'", "'\"'\"'") + "'"
 }
 
-def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost) {
-    if (!apiId?.trim() || !callBackHost?.trim()) {
-        echo 'Webhook skipped: api_id or CALL_BACK_HOST is empty'
+def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost, webhookSecret = '') {
+    if (!apiId?.trim() || !callBackHost?.trim() || !webhookSecret?.trim()) {
+        echo 'Webhook skipped: api_id, CALL_BACK_HOST, or WEBHOOK_SECRET is empty'
         return false
     }
 
@@ -426,6 +427,7 @@ def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost) {
             def result = sh(
                     script: """curl --location ${shellQuote(webhookUrl)} \\
                     --header 'Content-Type: application/json' \\
+                    --header ${shellQuote('x-webhook-secret: ' + webhookSecret)} \\
                     --data @${shellQuote(payloadFile)} \\
                     --insecure \\
                     --ssl-no-revoke \\

@@ -22,6 +22,7 @@ def call(Map config = [:]) {
             string(name: 'gitToken', defaultValue: config.gitToken ?: '', description: 'Git gitToken for authentication')
             string(name: 'api_name', defaultValue: config.api_name ?: '', description: 'api_name')
             string(name: 'CALL_BACK_HOST', defaultValue: config.call_back_host ?: '', description: '构建完成后的回调地址')
+            password(name: 'WEBHOOK_SECRET', defaultValue: config.webhookSecret ?: '', description: 'Webhook 回调密钥')
         }
 
         stages {
@@ -129,13 +130,13 @@ def call(Map config = [:]) {
             success {
                 echo "Deployment api ${params.api_id} completed successfully on port ${params.API_PORT}"
                 script {
-                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    sendWebhookWithRetry(params.api_id, "RUNNING", env.BUILD_ID, 3, params.CALL_BACK_HOST, params.WEBHOOK_SECRET?.toString())
                 }
             }
             failure {
                 echo "Deployment failed"
                 script {
-                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST)
+                    sendWebhookWithRetry(params.api_id, "ERROR", env.BUILD_ID, 3, params.CALL_BACK_HOST, params.WEBHOOK_SECRET?.toString())
                 }
             }
         }
@@ -143,7 +144,12 @@ def call(Map config = [:]) {
 }
 
 // vars/webhook_utils.groovy
-def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost) {
+def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost, webhookSecret = '') {
+    if (!apiId?.trim() || !callBackHost?.trim() || !webhookSecret?.trim()) {
+        echo 'Webhook skipped: api_id, CALL_BACK_HOST, or WEBHOOK_SECRET is empty'
+        return false
+    }
+
     def retryDelay = 5
 
     for (int i = 0; i < maxRetries; i++) {
@@ -153,6 +159,7 @@ def sendWebhookWithRetry(apiId, status, jobId, maxRetries = 3, callBackHost) {
             def result = sh(
                     script: """curl --location '${callBackHost}/api/apis/${apiId}/webhook' \
                     --header 'Content-Type: application/json' \
+                    --header 'x-webhook-secret: ${webhookSecret}' \
                     --data '{
                         \"apiStatus\":\"${status}\",
                         \"jobId\": \"${jobId}\"
