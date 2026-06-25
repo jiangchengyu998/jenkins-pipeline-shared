@@ -69,9 +69,11 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def codeDir = "${pwd()}/${env.REPO_NAME}"
+                        def apiName = paramValue('api_name')
 
                         echo "Starting image build..."
                         echo "Code directory: ${codeDir}"
+                        echo "API name: ${apiName}"
 
                         writeFile file: 'deploy.sh', text: libraryResource('deploy.sh')
                         writeFile file: 'Dockerfile_java8', text: libraryResource('Dockerfile_java8')
@@ -88,15 +90,14 @@ def call(Map config = [:]) {
                             withEnv([
                                     "CODE_DIR=${codeDir}",
                                     "APP_ENVS=${params.envs ?: ''}",
-                                    "API_NAME=${params.api_name}",
                                     "IMAGE_VERSION=${env.VERSION}"
                             ]) {
                                 sh(
                                         label: 'Build and push Docker image',
-                                        script: '''
+                                        script: """
                                             set -e
-                                            ./deploy.sh "$CODE_DIR" "$APP_ENVS" "$API_NAME" "$USERNAME" "$PASSWORD" "$IMAGE_VERSION"
-                                        '''.stripIndent()
+                                            ./deploy.sh "\$CODE_DIR" "\$APP_ENVS" ${shellQuote(apiName)} "\$USERNAME" "\$PASSWORD" "\$IMAGE_VERSION"
+                                        """.stripIndent()
                                 )
                             }
                         }
@@ -137,8 +138,9 @@ def call(Map config = [:]) {
                         writeFile file: 'deploy_helm.sh', text: libraryResource('deploy_helm.sh')
                         sh 'chmod +x deploy_helm.sh'
 
-                        def host = buildHost(params.api_name, params.HELM_HOST_SUFFIX)
-                        def releaseName = params.api_name.trim()
+                        def apiName = paramValue('api_name')
+                        def host = buildHost(apiName, params.HELM_HOST_SUFFIX)
+                        def releaseName = apiName
                         def envName = params.HELM_ENV.trim()
 
                         echo """
@@ -197,7 +199,7 @@ def validateRequiredParams() {
     def required = [
             GIT_URL: params.GIT_URL,
             branch: params.branch,
-            api_name: params.api_name,
+            api_name: paramValue('api_name'),
             HELM_GIT_URL: params.HELM_GIT_URL,
             HELM_GIT_BRANCH: params.HELM_GIT_BRANCH,
             HELM_ENV: params.HELM_ENV,
@@ -209,7 +211,12 @@ def validateRequiredParams() {
         error "Missing required parameters: ${missing.join(', ')}"
     }
 
-    validateKubernetesName(params.api_name, 'api_name')
+    validateKubernetesName(paramValue('api_name'), 'api_name')
+}
+
+def paramValue(String name) {
+    def value = params[name]
+    return value == null ? '' : value.toString().trim()
 }
 
 def checkoutApplicationCode() {

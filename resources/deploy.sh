@@ -25,9 +25,9 @@ if [ ! -d "$code_dir" ]; then
 fi
 
 # 获取code_dir最后一个/后面的字符串作为项目名
-#if [ -z "$project_name" ]; then
-#    project_name=${code_dir##*/}
-#fi
+if [ -z "$project_name" ]; then
+    project_name=${code_dir##*/}
+fi
 
 # 清理项目名，只保留字母数字和连字符
 project_name=$(echo "$project_name" | tr -cd '[:alnum:]-_' | tr '[:upper:]' '[:lower:]')
