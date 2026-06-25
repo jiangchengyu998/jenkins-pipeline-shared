@@ -191,7 +191,7 @@ deploy_helm() {
   helm upgrade --install "${api_name}" "${chart_path}" \
     -f "${tmpfile}" \
     --namespace "${namespace}" \
-    --atomic \
+    --rollback-on-failure \
     --timeout "${HELM_TIMEOUT:-180s}"
 
   echo "部署完成: release=${api_name} chart=${chart_path} namespace=${namespace}"
