@@ -28,6 +28,47 @@ fi
 # 清理项目名，只保留字母数字和连字符
 project_name=$(echo "$project_name" | tr -cd '[:alnum:]-_' | tr '[:upper:]' '[:lower:]')
 
+mask_env_line() {
+    local line=$1
+    local key=${line%%=*}
+
+    if [ "$line" = "$key" ]; then
+        printf '%s\n' "$line"
+    else
+        printf '%s=****\n' "$key"
+    fi
+}
+
+print_masked_dockerfile() {
+    awk '
+        /^[[:space:]]*ENV[[:space:]]+/ {
+            indent = $0
+            sub(/[^[:space:]].*$/, "", indent)
+            rest = $0
+            sub(/^[[:space:]]*ENV[[:space:]]+/, "", rest)
+
+            if (rest ~ /^[^=[:space:]]+=/) {
+                masked = ""
+                count = split(rest, fields, /[[:space:]]+/)
+                for (i = 1; i <= count; i++) {
+                    if (fields[i] ~ /^[^=]+=/) {
+                        key = fields[i]
+                        sub(/=.*/, "", key)
+                        masked = masked (masked ? " " : "") key "=****"
+                    }
+                }
+                rest = masked ? masked : "****"
+            } else {
+                sub(/[[:space:]].*$/, " ****", rest)
+            }
+
+            print indent "ENV " rest
+            next
+        }
+        { print }
+    ' "$1"
+}
+
 # 设置日志目录
 log_dir="/var/log/${project_name}"
 mkdir -p "$log_dir"
@@ -109,7 +150,7 @@ if [ "$language" = "nodejs" ]; then
                 while IFS= read -r line; do
                     if [ -n "$line" ]; then
                         if [[ $line == NEXT_PUBLIC* ]]; then
-                            echo "  环境变量: $line"
+                            echo "  环境变量: $(mask_env_line "$line")"
                             echo "  环境变量1: ${line%=*}"
                             # 只取=前面的一段
                             dockerfile_line=$(grep -n "ENV ${line%=*}" "${code_dir}/Dockerfile" | cut -d: -f1)
@@ -129,7 +170,7 @@ if [ "$language" = "nodejs" ]; then
 fi
 
 echo "  Dockerfile: ${code_dir}/Dockerfile"
-cat "${code_dir}/Dockerfile"
+print_masked_dockerfile "${code_dir}/Dockerfile"
 
 #docker build -t "${project_name}" \
 #    --build-arg SERVER_PORT="${api_port}" \
@@ -160,7 +201,7 @@ if [ -n "$envs" ] && [ "$envs" != "null" ]; then
             while IFS= read -r line; do
                 if [ -n "$line" ]; then
                     docker_envs="$docker_envs -e \"$line\""
-                    echo "  环境变量: $line"
+                    echo "  环境变量: $(mask_env_line "$line")"
                 fi
             done <<< "$env_vars"
         fi

@@ -95,6 +95,7 @@ def call(Map config = [:]) {
                             sh(
                                     label: 'Deploy Helm release',
                                     script: '''
+                                        set +x
                                         set -e
                                         ./deploy_helm.sh "$CHART_PATH" "$HELM_HOST" "$RELEASE_NAME" "$IMAGE_VERSION" "$HELM_ENV_NAME" "$HELM_NAMESPACE_NAME"
                                     '''.stripIndent()

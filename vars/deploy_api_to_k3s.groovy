@@ -95,6 +95,7 @@ def call(Map config = [:]) {
                                 sh(
                                         label: 'Build and push Docker image',
                                         script: """
+                                            set +x
                                             set -e
                                             ./deploy.sh "\$CODE_DIR" "\$APP_ENVS" ${shellQuote(apiName)} "\$USERNAME" "\$PASSWORD" "\$IMAGE_VERSION"
                                         """.stripIndent()
@@ -166,6 +167,7 @@ def call(Map config = [:]) {
                             sh(
                                     label: 'Deploy Helm release',
                                     script: '''
+                                        set +x
                                         set -e
                                         ./deploy_helm.sh "$CHART_PATH" "$HELM_HOST" "$RELEASE_NAME" "$IMAGE_VERSION" "$HELM_ENV_NAME"
                                     '''.stripIndent()

@@ -112,7 +112,20 @@ def call(Map config = [:]) {
                         sh 'chmod +x deploy_docker.sh'
 
                         // 执行部署脚本
-                        sh "./deploy_docker.sh ${code_dir} ${params.API_PORT} '${params.envs}' ${params.api_name}"
+                        withEnv([
+                                "CODE_DIR=${code_dir}",
+                                "API_PORT_VALUE=${params.API_PORT}",
+                                "APP_ENVS=${params.envs ?: ''}",
+                                "API_NAME=${params.api_name}"
+                        ]) {
+                            sh(
+                                    label: 'Run deploy_docker.sh',
+                                    script: '''
+                                        set +x
+                                        ./deploy_docker.sh "$CODE_DIR" "$API_PORT_VALUE" "$APP_ENVS" "$API_NAME"
+                                    '''.stripIndent()
+                            )
+                        }
 
                         // 验证部署结果
                         sh "ls -la"
