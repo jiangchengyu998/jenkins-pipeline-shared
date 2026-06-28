@@ -263,13 +263,15 @@ def detectProjectInfo(String codeDir) {
 
     if (fileExists("${codeDir}/pom.xml")) {
         version = sh(
-                script: "grep -m1 '<version>' ${shellQuote(codeDir + '/pom.xml')} | sed 's/.*<version>\\(.*\\)<\\/version>.*/\\1/'",
+//                script: "grep -m1 '<version>' ${shellQuote(codeDir + '/pom.xml')} | sed 's/.*<version>\\(.*\\)<\\/version>.*/\\1/'",
+                script: "cd ${quotedDir} && git describe --tags --always --dirty || true",
                 returnStdout: true
         ).trim()
         language = 'java'
     } else if (fileExists("${codeDir}/build.gradle") || fileExists("${codeDir}/build.gradle.kts")) {
         version = sh(
-                script: "cd ${quotedDir} && git describe --tags --always --dirty",
+//                script: "cd ${quotedDir} && git describe --tags --always --dirty",
+                script: "cd ${quotedDir} && git describe --tags --always --dirty || true",
                 returnStdout: true
         ).trim()
         language = 'java'
