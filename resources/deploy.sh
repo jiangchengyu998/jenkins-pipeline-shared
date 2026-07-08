@@ -17,6 +17,11 @@ harbor_username=${4:-}
 harbor_password=${5:-}
 version=${6:-latest}
 registry=${DOCKER_REGISTRY:-192.168.50.18:5000}
+buildpack_builder=${BUILDPACK_BUILDER:-paketobuildpacks/builder-jammy-full}
+buildpack_jvm_version=${BUILDPACK_JVM_VERSION:-${BP_JVM_VERSION:-}}
+buildpack_node_version=${BUILDPACK_NODE_VERSION:-${BP_NODE_VERSION:-}}
+buildpack_python_version=${BUILDPACK_PYTHON_VERSION:-${BP_PYTHON_VERSION:-}}
+buildpack_go_version=${BUILDPACK_GO_VERSION:-${BP_GO_VERSION:-}}
 
 # 验证代码目录是否存在
 if [ ! -d "$code_dir" ]; then
@@ -52,32 +57,12 @@ echo "日志目录: $log_dir"
 echo "镜像版本: $version"
 echo "镜像仓库: $registry"
 
-# 检测项目语言类型：当前只区分 Java 和其他
-detect_language() {
-    local dir=$1
+build_method="dockerfile"
 
-    if [ -f "$dir/pom.xml" ]; then
-        echo "java"
-    elif [ -f "$dir/build.gradle" ] || [ -f "$dir/build.gradle.kts" ]; then
-        echo "java"
-    else
-        echo "other"
-    fi
-}
-
-# 检测语言类型
-language=$(detect_language "$code_dir")
-echo "检测到项目类型: $language"
-
-# 查看${code_dir}中是否有Dockerfile，如果没有，则根据项目语言类型进行选择Dockerfile
+# 查看${code_dir}中是否有Dockerfile，如果没有，默认使用 Cloud Native Buildpacks 构建镜像
 if [ ! -f "${code_dir}/Dockerfile" ]; then
-    if [ "$language" = "java" ]; then
-        echo "未找到Dockerfile，Java项目使用Dockerfile_java8模板"
-        cp ./Dockerfile_java8 "${code_dir}/Dockerfile"
-    else
-        echo "错误: 非Java项目必须在项目中提供Dockerfile"
-        exit 1
-    fi
+    echo "未找到Dockerfile，使用 Cloud Native Buildpacks 构建镜像"
+    build_method="buildpacks"
 else
     echo "使用项目中的Dockerfile"
 fi
@@ -89,13 +74,47 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 echo "开始构建Docker镜像..."
-echo "  Dockerfile: ${code_dir}/Dockerfile"
+if [ "$build_method" = "buildpacks" ]; then
+    if ! command -v pack > /dev/null 2>&1; then
+        echo "错误: 未找到 pack 命令。无Dockerfile并使用 buildpacks 构建时需要安装 Cloud Native Buildpacks pack CLI"
+        exit 1
+    fi
 
-docker build -t "${project_name}" \
-    --build-arg VERSION="${version}" \
-    --label "project=${project_name}" \
-    --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
-    "${code_dir}"
+    pack_args=(
+        build "${project_name}"
+        --path "${code_dir}"
+        --builder "${buildpack_builder}"
+    )
+
+    if [ -n "$buildpack_jvm_version" ]; then
+        pack_args+=(--env "BP_JVM_VERSION=${buildpack_jvm_version}")
+        echo "  JVM版本: ${buildpack_jvm_version}"
+    fi
+    if [ -n "$buildpack_node_version" ]; then
+        pack_args+=(--env "BP_NODE_VERSION=${buildpack_node_version}")
+        echo "  Node.js版本: ${buildpack_node_version}"
+    fi
+    if [ -n "$buildpack_python_version" ]; then
+        pack_args+=(--env "BP_PYTHON_VERSION=${buildpack_python_version}")
+        echo "  Python版本: ${buildpack_python_version}"
+    fi
+    if [ -n "$buildpack_go_version" ]; then
+        pack_args+=(--env "BP_GO_VERSION=${buildpack_go_version}")
+        echo "  Go版本: ${buildpack_go_version}"
+    fi
+
+    echo "  构建方式: buildpacks"
+    echo "  Builder: ${buildpack_builder}"
+    pack "${pack_args[@]}"
+else
+    echo "  构建方式: Dockerfile"
+    echo "  Dockerfile: ${code_dir}/Dockerfile"
+    docker build -t "${project_name}" \
+        --build-arg VERSION="${version}" \
+        --label "project=${project_name}" \
+        --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
+        "${code_dir}"
+fi
 
 echo "镜像构建完成: ${project_name}"
 

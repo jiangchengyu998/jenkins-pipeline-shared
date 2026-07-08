@@ -19,7 +19,7 @@ Jenkins Shared Library，用来封装常用 CI/CD、K3s 部署、Docker 构建�
 
 - `resources/deploy.sh`：构建并推送 Docker 镜像。
 - `resources/deploy_helm.sh`：生成临时 Helm values 文件并执行 `helm upgrade --install`。
-- `resources/Dockerfile_java8`：Java 项目没有 Dockerfile 时使用的默认模板。
+- `resources/Dockerfile_java8`：旧版 Java Dockerfile 模板；`deploy_api_to_k3s` 无 Dockerfile 场景默认使用 buildpacks。
 
 ### deploy_api_to_k3s
 
@@ -62,22 +62,27 @@ deploy_api_to_k3s(
 | `helmChart` / `HELM_CHART` | 否 | 指定 chart 名称；不填时 Java 用 `springboot-api`，其他用 `generic-api` |
 | `exe_node` | 否 | Jenkins agent label，默认 `w-ubuntu` |
 
-> `API_PORT` 已不再作为流水线入参使用。容器端口以 Dockerfile 中的 `EXPOSE` 为准。
+> `API_PORT` 已不再作为流水线入参使用。项目自带 Dockerfile 时，容器端口以 Dockerfile 中的 `EXPOSE` 为准；buildpacks 构建时优先使用 `envs` 中的 `SERVER_PORT` 或 `PORT`，否则默认 `8080`。
 
-### 语言和 Dockerfile 规则
-
-当前只区分两类项目：
-
-- Java：存在 `pom.xml`、`build.gradle` 或 `build.gradle.kts`。
-- 其他：不细分 Node/Python/Go 等语言。
+### 构建规则
 
 Dockerfile 规则：
 
 - 项目自带 Dockerfile 时，直接使用项目内 Dockerfile。
-- Java 项目没有 Dockerfile 时，会自动使用 `resources/Dockerfile_java8`。
-- 非 Java 项目必须自带 Dockerfile。
+- 项目没有 Dockerfile 时，直接使用 Cloud Native Buildpacks 构建镜像。
+- 是否支持当前源码由 buildpacks 的 detect 阶段判断；detect 失败时构建会失败。
 
-Dockerfile 必须声明 `EXPOSE`，例如：
+使用 buildpacks 时，Jenkins agent 需要安装 Docker 和 `pack` CLI。默认 builder 是 `paketobuildpacks/builder-jammy-full`，可通过环境变量覆盖：
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `BUILDPACK_BUILDER` | `paketobuildpacks/builder-jammy-full` | `pack build` 使用的 builder |
+| `BUILDPACK_JVM_VERSION` / `BP_JVM_VERSION` | 空 | 可选，指定 Paketo Java JVM 版本 |
+| `BUILDPACK_NODE_VERSION` / `BP_NODE_VERSION` | 空 | 可选，指定 Node.js 版本 |
+| `BUILDPACK_PYTHON_VERSION` / `BP_PYTHON_VERSION` | 空 | 可选，指定 Python 版本 |
+| `BUILDPACK_GO_VERSION` / `BP_GO_VERSION` | 空 | 可选，指定 Go 版本 |
+
+项目自带 Dockerfile 时，Dockerfile 必须声明 `EXPOSE`，例如：
 
 ```dockerfile
 EXPOSE 8080
@@ -91,7 +96,7 @@ ENV SERVER_PORT=${SERVER_PORT}
 EXPOSE ${SERVER_PORT}
 ```
 
-流水线会读取最终 Dockerfile 的 `EXPOSE` 端口，并传给 Helm values。
+流水线会读取 Dockerfile 的 `EXPOSE` 端口，并传给 Helm values。buildpacks 构建没有 Dockerfile 时，会使用 `SERVER_PORT`、`PORT` 或默认 `8080`。应用需要监听对应端口。
 
 ### Helm values 替换
 
@@ -106,7 +111,7 @@ EXPOSE ${SERVER_PORT}
 | `TAG` | 构建出的镜像 tag |
 | `ENVIRONMENT` | `HELM_ENV` |
 
-如果 Dockerfile 里读取到了 `EXPOSE` 端口，还会替换：
+如果检测到了容器端口，还会替换：
 
 - `API-PORT`
 - `API_PORT`
@@ -182,6 +187,7 @@ deploy_api_to_k3s_cd(
 - `helm`
 - `kubectl`
 - `jq`：当 `envs` 有值时用于把 JSON 转成 values YAML。
+- `pack`：项目没有 Dockerfile、需要 buildpacks 构建时使用。
 
 K3s 默认 kubeconfig：
 
@@ -190,6 +196,20 @@ K3s 默认 kubeconfig：
 ```
 
 可通过 `KUBECONFIG` 环境变量覆盖。
+
+#### Jenkins agent 安装 pack CLI
+
+`pack` 需要配合 Docker 或 Podman 这类容器运行时使用。Linux x86_64 示例：
+
+```bash
+PACK_VERSION=0.40.7
+curl -fsSLO "https://github.com/buildpacks/pack/releases/download/v${PACK_VERSION}/pack-v${PACK_VERSION}-linux.tgz"
+tar -xzf "pack-v${PACK_VERSION}-linux.tgz"
+sudo mv pack /usr/local/bin/pack
+pack version
+```
+
+ARM64 机器把包名换成 `pack-v${PACK_VERSION}-linux-arm64.tgz`。
 
 ## 其他流水线
 

@@ -1,5 +1,6 @@
 // vars/deploy_api_to_k3s.groovy
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 
 def call(Map config = [:]) {
     pipeline {
@@ -103,8 +104,8 @@ def call(Map config = [:]) {
                             }
                         }
 
-                        env.CONTAINER_PORT = detectExposedPort("${codeDir}/Dockerfile")
-                        echo "Detected container EXPOSE port: ${env.CONTAINER_PORT}"
+                        env.CONTAINER_PORT = detectContainerPort(codeDir, params.envs ?: '')
+                        echo "Detected container port: ${env.CONTAINER_PORT}"
 
                     }
                 }
@@ -260,32 +261,57 @@ def checkoutApplicationCode() {
 
 def detectProjectInfo(String codeDir) {
     def quotedDir = shellQuote(codeDir)
-    def version = null
     def language = 'other'
+    def version = sh(
+            script: "cd ${quotedDir} && git describe --tags --always --dirty || true",
+            returnStdout: true
+    ).trim()
 
     if (fileExists("${codeDir}/pom.xml")) {
-        version = sh(
-//                script: "grep -m1 '<version>' ${shellQuote(codeDir + '/pom.xml')} | sed 's/.*<version>\\(.*\\)<\\/version>.*/\\1/'",
-                script: "cd ${quotedDir} && git describe --tags --always --dirty || true",
-                returnStdout: true
-        ).trim()
         language = 'java'
     } else if (fileExists("${codeDir}/build.gradle") || fileExists("${codeDir}/build.gradle.kts")) {
-        version = sh(
-//                script: "cd ${quotedDir} && git describe --tags --always --dirty",
-                script: "cd ${quotedDir} && git describe --tags --always --dirty || true",
-                returnStdout: true
-        ).trim()
         language = 'java'
-    } else {
-        version = sh(
-                script: "cd ${quotedDir} && git describe --tags --always --dirty || true",
-                returnStdout: true
-        ).trim()
     }
 
     version = sanitizeDockerTag(version ?: 'latest')
     return [version: version, language: language]
+}
+
+def detectContainerPort(String codeDir, String envJson) {
+    def dockerfilePath = "${codeDir}/Dockerfile"
+    if (fileExists(dockerfilePath)) {
+        return detectExposedPort(dockerfilePath)
+    }
+
+    return detectBuildpackPort(envJson)
+}
+
+def detectBuildpackPort(String envJson) {
+    def appEnvs = parseAppEnvJson(envJson)
+    def configuredPort = appEnvs.SERVER_PORT ?: appEnvs.PORT
+    if (configuredPort != null && configuredPort.toString().trim()) {
+        return validatePortValue(configuredPort.toString(), 'buildpacks container port')
+    }
+
+    echo 'Dockerfile not found; using buildpacks default container port: 8080'
+    return '8080'
+}
+
+def parseAppEnvJson(String envJson) {
+    def raw = envJson?.trim()
+    if (!raw || raw == 'null') {
+        return [:]
+    }
+
+    try {
+        def parsed = new JsonSlurper().parseText(raw)
+        if (!(parsed instanceof Map)) {
+            error 'envs must be a JSON object when detecting buildpacks port'
+        }
+        return parsed.collectEntries { key, value -> [(key.toString()): value] }
+    } catch (Exception e) {
+        error "Invalid envs JSON when detecting buildpacks port: ${e.message}"
+    }
 }
 
 def detectExposedPort(String dockerfilePath) {
