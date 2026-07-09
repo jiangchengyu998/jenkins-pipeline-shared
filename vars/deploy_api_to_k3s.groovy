@@ -283,18 +283,115 @@ def detectContainerPort(String codeDir, String envJson) {
         return detectExposedPort(dockerfilePath)
     }
 
-    return detectBuildpackPort(envJson)
+    return detectBuildpackPort(codeDir, envJson)
 }
 
-def detectBuildpackPort(String envJson) {
+def detectBuildpackPort(String codeDir, String envJson) {
     def appEnvs = parseAppEnvJson(envJson)
     def configuredPort = appEnvs.SERVER_PORT ?: appEnvs.PORT
     if (configuredPort != null && configuredPort.toString().trim()) {
         return validatePortValue(configuredPort.toString(), 'buildpacks container port')
     }
 
-    echo 'Dockerfile not found; using buildpacks default container port: 8080'
-    return '8080'
+    def inferred = inferBuildpackPort(codeDir)
+    echo "Dockerfile not found; inferred buildpacks container port: ${inferred.port} (${inferred.reason})"
+    return validatePortValue(inferred.port, 'inferred buildpacks container port')
+}
+
+def inferBuildpackPort(String codeDir) {
+    def packageJson = parseJsonFileIfExists("${codeDir}/package.json")
+    if (packageJson != null) {
+        def packages = collectPackageJsonDependencies(packageJson)
+        if (packages.containsKey('next')) {
+            return [port: '3000', reason: 'Node.js Next.js convention']
+        }
+        if (packages.keySet().any { it in ['@nestjs/core', 'express', 'fastify', 'koa', 'hapi', '@hapi/hapi'] }) {
+            return [port: '3000', reason: 'Node.js API convention']
+        }
+        return [port: '3000', reason: 'Node.js package.json convention']
+    }
+
+    if (fileExists("${codeDir}/manage.py")) {
+        return [port: '8000', reason: 'Python Django convention']
+    }
+
+    def pythonConfig = readExistingFiles([
+            "${codeDir}/requirements.txt",
+            "${codeDir}/pyproject.toml",
+            "${codeDir}/Pipfile"
+    ]).toLowerCase()
+    if (pythonConfig) {
+        if (pythonConfig.contains('flask')) {
+            return [port: '5000', reason: 'Python Flask convention']
+        }
+        if (['fastapi', 'uvicorn', 'starlette', 'django'].any { pythonConfig.contains(it) }) {
+            return [port: '8000', reason: 'Python ASGI/Django convention']
+        }
+        return [port: '8000', reason: 'Python convention']
+    }
+
+    if (fileExists("${codeDir}/pom.xml") || fileExists("${codeDir}/build.gradle") || fileExists("${codeDir}/build.gradle.kts")) {
+        return [port: '8080', reason: 'Java/Spring Boot convention']
+    }
+
+    if (fileExists("${codeDir}/go.mod")) {
+        return [port: '8080', reason: 'Go service convention']
+    }
+
+    if (hasFileMatching(codeDir, '*.csproj')) {
+        return [port: '8080', reason: '.NET container convention']
+    }
+
+    def gemfile = readExistingFiles(["${codeDir}/Gemfile"]).toLowerCase()
+    if (gemfile) {
+        if (gemfile.contains('rails')) {
+            return [port: '3000', reason: 'Ruby on Rails convention']
+        }
+        if (gemfile.contains('sinatra')) {
+            return [port: '4567', reason: 'Ruby Sinatra convention']
+        }
+        return [port: '3000', reason: 'Ruby convention']
+    }
+
+    if (fileExists("${codeDir}/composer.json") || fileExists("${codeDir}/index.php")) {
+        return [port: '8080', reason: 'PHP/web server container convention']
+    }
+
+    return [port: '8080', reason: 'generic buildpacks fallback']
+}
+
+def parseJsonFileIfExists(String path) {
+    if (!fileExists(path)) {
+        return null
+    }
+
+    try {
+        def parsed = new JsonSlurper().parseText(readFile(file: path))
+        return parsed instanceof Map ? parsed : null
+    } catch (Exception ignored) {
+        return null
+    }
+}
+
+def collectPackageJsonDependencies(Map packageJson) {
+    def packages = [:]
+    ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'].each { section ->
+        if (packageJson[section] instanceof Map) {
+            packages.putAll(packageJson[section])
+        }
+    }
+    return packages
+}
+
+def readExistingFiles(List<String> paths) {
+    return paths.findAll { fileExists(it) }.collect { readFile(file: it) }.join('\n')
+}
+
+def hasFileMatching(String codeDir, String pattern) {
+    return sh(
+            script: "find ${shellQuote(codeDir)} -maxdepth 2 -name ${shellQuote(pattern)} -print -quit",
+            returnStdout: true
+    ).trim()
 }
 
 def parseAppEnvJson(String envJson) {

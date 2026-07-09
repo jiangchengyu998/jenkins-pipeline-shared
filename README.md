@@ -62,7 +62,7 @@ deploy_api_to_k3s(
 | `helmChart` / `HELM_CHART` | 否 | 指定 chart 名称；不填时 Java 用 `springboot-api`，其他用 `generic-api` |
 | `exe_node` | 否 | Jenkins agent label，默认 `w-ubuntu` |
 
-> `API_PORT` 已不再作为流水线入参使用。项目自带 Dockerfile 时，容器端口以 Dockerfile 中的 `EXPOSE` 为准；buildpacks 构建时优先使用 `envs` 中的 `SERVER_PORT` 或 `PORT`，否则默认 `8080`。
+> `API_PORT` 已不再作为流水线入参使用。项目自带 Dockerfile 时，容器端口以 Dockerfile 中的 `EXPOSE` 为准；buildpacks 构建时优先使用 `envs` 中的 `SERVER_PORT` 或 `PORT`，否则按源码特征推测端口。
 
 ### 构建规则
 
@@ -96,7 +96,22 @@ ENV SERVER_PORT=${SERVER_PORT}
 EXPOSE ${SERVER_PORT}
 ```
 
-流水线会读取 Dockerfile 的 `EXPOSE` 端口，并传给 Helm values。buildpacks 构建没有 Dockerfile 时，会使用 `SERVER_PORT`、`PORT` 或默认 `8080`。应用需要监听对应端口。
+流水线会读取 Dockerfile 的 `EXPOSE` 端口，并传给 Helm values。buildpacks 构建没有 Dockerfile 时，会使用 `SERVER_PORT`、`PORT` 或按语言/框架推测端口。应用需要监听对应端口。
+
+buildpacks 端口推测规则：
+
+| 项目特征 | 推测端口 |
+| --- | --- |
+| `package.json`，包括 Next.js、Express、Nest、Fastify、Koa、Hapi 等 Node.js 项目 | `3000` |
+| `manage.py`、Django、FastAPI、Uvicorn、Starlette | `8000` |
+| Flask | `5000` |
+| Maven、Gradle、Spring Boot 等 Java 项目 | `8080` |
+| `go.mod` Go 项目 | `8080` |
+| `.csproj` .NET 项目 | `8080` |
+| Ruby on Rails | `3000` |
+| Sinatra | `4567` |
+| PHP / Web Server 项目 | `8080` |
+| 无法识别 | `8080` |
 
 ### Helm values 替换
 
