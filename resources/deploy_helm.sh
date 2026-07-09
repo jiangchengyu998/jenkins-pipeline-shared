@@ -127,7 +127,7 @@ deploy_helm() {
   tag="$4"
   environment="$5"
   namespace="${6:-${HELM_NAMESPACE:-default}}"
-  container_port="${HELM_CONTAINER_PORT:-}"
+  container_port="${HELM_CONTAINER_PORT:-8080}"
   app_envs="${HELM_APP_ENVS:-}"
 
   [ -n "$chart_path" ] || fail "chart_path 不能为空" 2
