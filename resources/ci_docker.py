@@ -29,5 +29,5 @@ run(
         f"project={project_name}",
         "--label",
         f"build-time={datetime.now().isoformat(timespec='seconds')}",
-        {code_dir},
+        str(code_dir),
     ])
