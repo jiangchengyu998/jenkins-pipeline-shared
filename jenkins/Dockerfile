@@ -27,8 +27,14 @@ RUN apt-get update && \
     git \
     vim \
     nano \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python-is-python3 \
     gnupg && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    python --version && \
+    pip3 --version
 
 # 安装 Cloud Native Buildpacks pack CLI
 RUN set -eux; \
