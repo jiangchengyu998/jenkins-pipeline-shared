@@ -114,7 +114,7 @@ else
 #        --label "project=${project_name}" \
 #        --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
 #        "${code_dir}"
-    python ci_docker.py
+    python ci_docker.py  --code_dir="${code_dir}" --project_name="${project_name}" --version="${version}"
 fi
 
 echo "镜像构建完成: ${project_name}"

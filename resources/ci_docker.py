@@ -9,6 +9,11 @@
 """
 from subprocess import run
 from datetime import datetime
+import sys
+
+code_dir = sys.argv[1]
+project_name = sys.argv[2]
+version = sys.argv[3]
 
 print(f"  构建方式: Dockerfile\n  Dockerfile: {code_dir}/Dockerfile")
 
@@ -17,12 +22,12 @@ run(
         "docker",
         "build",
         "-t",
-        project_name,
+        {project_name},
         "--build-arg",
         f"VERSION={version}",
         "--label",
         f"project={project_name}",
         "--label",
         f"build-time={datetime.now().isoformat(timespec='seconds')}",
-        str(code_dir),
+        {code_dir},
     ])
