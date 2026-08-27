@@ -7,9 +7,13 @@
         --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
         "${code_dir}"
 """
-from subprocess import run
 from datetime import datetime
+from subprocess import run
 import sys
+
+if len(sys.argv) != 4:
+    print(f"用法: {sys.argv[0]} <代码目录> <项目名> <镜像版本>", file=sys.stderr)
+    sys.exit(2)
 
 code_dir = sys.argv[1]
 project_name = sys.argv[2]
@@ -17,7 +21,7 @@ version = sys.argv[3]
 
 print(f"  构建方式: Dockerfile\n  Dockerfile: {code_dir}/Dockerfile")
 
-run(
+result = run(
     [
         "docker",
         "build",
@@ -29,7 +33,11 @@ run(
         f"project={project_name}",
         "--label",
         f"build-time={datetime.now().isoformat(timespec='seconds')}",
-        str(code_dir),
-    ])
+        code_dir,
+    ]
+)
 
-print(f"镜像 {project_name}:{version} 构建完成")
+if result.returncode != 0:
+    sys.exit(result.returncode)
+
+print(f"镜像 {project_name} 构建完成，目标版本: {version}")
