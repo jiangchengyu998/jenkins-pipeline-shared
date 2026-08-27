@@ -31,3 +31,5 @@ run(
         f"build-time={datetime.now().isoformat(timespec='seconds')}",
         str(code_dir),
     ])
+
+print(f"镜像 {project_name}:{version} 构建完成")
