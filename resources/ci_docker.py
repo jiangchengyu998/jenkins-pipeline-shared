@@ -22,7 +22,7 @@ run(
         "docker",
         "build",
         "-t",
-        {project_name},
+        project_name,
         "--build-arg",
         f"VERSION={version}",
         "--label",
