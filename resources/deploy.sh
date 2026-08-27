@@ -17,11 +17,6 @@ harbor_username=${4:-}
 harbor_password=${5:-}
 version=${6:-latest}
 registry=${DOCKER_REGISTRY:-192.168.50.18:5000}
-buildpack_builder=${BUILDPACK_BUILDER:-paketobuildpacks/builder-jammy-full}
-buildpack_jvm_version=${BUILDPACK_JVM_VERSION:-${BP_JVM_VERSION:-}}
-buildpack_node_version=${BUILDPACK_NODE_VERSION:-${BP_NODE_VERSION:-}}
-buildpack_python_version=${BUILDPACK_PYTHON_VERSION:-${BP_PYTHON_VERSION:-}}
-buildpack_go_version=${BUILDPACK_GO_VERSION:-${BP_GO_VERSION:-}}
 
 # 验证代码目录是否存在
 if [ ! -d "$code_dir" ]; then
@@ -75,37 +70,8 @@ fi
 
 echo "开始构建Docker镜像..."
 if [ "$build_method" = "buildpacks" ]; then
-    if ! command -v pack > /dev/null 2>&1; then
-        echo "错误: 未找到 pack 命令。无Dockerfile并使用 buildpacks 构建时需要安装 Cloud Native Buildpacks pack CLI"
-        exit 1
-    fi
-
-    pack_args=(
-        build "${project_name}"
-        --path "${code_dir}"
-        --builder "${buildpack_builder}"
-    )
-
-    if [ -n "$buildpack_jvm_version" ]; then
-        pack_args+=(--env "BP_JVM_VERSION=${buildpack_jvm_version}")
-        echo "  JVM版本: ${buildpack_jvm_version}"
-    fi
-    if [ -n "$buildpack_node_version" ]; then
-        pack_args+=(--env "BP_NODE_VERSION=${buildpack_node_version}")
-        echo "  Node.js版本: ${buildpack_node_version}"
-    fi
-    if [ -n "$buildpack_python_version" ]; then
-        pack_args+=(--env "BP_PYTHON_VERSION=${buildpack_python_version}")
-        echo "  Python版本: ${buildpack_python_version}"
-    fi
-    if [ -n "$buildpack_go_version" ]; then
-        pack_args+=(--env "BP_GO_VERSION=${buildpack_go_version}")
-        echo "  Go版本: ${buildpack_go_version}"
-    fi
-
-    echo "  构建方式: buildpacks"
-    echo "  Builder: ${buildpack_builder}"
-    pack "${pack_args[@]}"
+    echo "使用 Python 脚本通过 Buildpacks 构建Docker镜像"
+    python3 ci_buildpacks.py "${code_dir}" "${project_name}"
 else
     echo "使用 python 脚本构建Docker镜像"
     python3 ci_docker.py "${code_dir}" "${project_name}" "${version}"

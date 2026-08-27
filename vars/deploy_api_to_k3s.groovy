@@ -79,6 +79,7 @@ def call(Map config = [:]) {
                         writeFile file: 'deploy.sh', text: libraryResource('deploy.sh')
                         writeFile file: 'Dockerfile_java8', text: libraryResource('Dockerfile_java8')
                         writeFile file: 'ci_docker.py', text: libraryResource('ci_docker.py')
+                        writeFile file: 'ci_buildpacks.py', text: libraryResource('ci_buildpacks.py')
                         sh 'chmod +x deploy.sh'
 
                         def projectInfo = detectProjectInfo(codeDir)
