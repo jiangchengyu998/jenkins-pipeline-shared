@@ -93,3 +93,5 @@ image_tag="${registry}/${project_name}:$version"
 docker tag "${project_name}" "${image_tag}"
 echo "镜像打标签完成: ${image_tag}"
 docker push "${image_tag}"
+
+docker image prune -f
