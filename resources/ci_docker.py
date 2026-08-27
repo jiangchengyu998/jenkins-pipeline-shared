@@ -27,8 +27,7 @@ def check_buildx() -> bool:
     try:
         result = subprocess.run(
             ["docker", "buildx", "version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
     except OSError as exception:
