@@ -1,10 +1,18 @@
 # Dockerfile
+ARG BUILDX_VERSION=0.36.1
+
+FROM docker/buildx-bin:${BUILDX_VERSION} AS buildx
 FROM jenkins/jenkins:jdk21
 
 ARG PACK_VERSION=0.40.7
 
 # 切换到 root 用户安装软件
 USER root
+
+# 安装 Docker Buildx CLI 插件
+COPY --from=buildx /buildx /usr/libexec/docker/cli-plugins/docker-buildx
+
+RUN test -x /usr/libexec/docker/cli-plugins/docker-buildx
 
 RUN mkdir -p /root/.ssh && \
     chmod 700 /root/.ssh

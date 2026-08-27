@@ -24,7 +24,9 @@ print(f"  构建方式: Dockerfile\n  Dockerfile: {code_dir}/Dockerfile")
 result = run(
     [
         "docker",
+        "buildx",
         "build",
+        "--load",
         "-t",
         project_name,
         "--build-arg",

@@ -107,13 +107,6 @@ if [ "$build_method" = "buildpacks" ]; then
     echo "  Builder: ${buildpack_builder}"
     pack "${pack_args[@]}"
 else
-#    echo "  构建方式: Dockerfile"
-#    echo "  Dockerfile: ${code_dir}/Dockerfile"
-#    docker build -t "${project_name}" \
-#        --build-arg VERSION="${version}" \
-#        --label "project=${project_name}" \
-#        --label "build-time=$(date +%Y-%m-%dT%H:%M:%S)" \
-#        "${code_dir}"
     echo "使用 python 脚本构建Docker镜像"
     python3 ci_docker.py "${code_dir}" "${project_name}" "${version}"
 fi
