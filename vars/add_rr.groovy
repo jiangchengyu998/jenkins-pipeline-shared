@@ -12,6 +12,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         def checkResult = sh(
+
                                 script: "aliyun alidns DescribeDomainRecords --region public --DomainName 'ydphoto.com' --RRKeyWord ${params.RR}",
                                 returnStdout: true
                         )
